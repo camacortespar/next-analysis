@@ -1,0 +1,17 @@
+This text include all the relevant numbers in term of efficiency.
+
+##### Reconstruction + Pre-Selection Efficiencies #####
+
+After 22 runs:
+
+Total events after the reconstruction chain = 536527
+Total events with Z >= 0                    = 472157
+Total events with nS1 = 1                   = 399902
+Total events after avoiding Po-like         = 327849
+Total events after electron selection       = 53285
+Total events after dropping spurious hits   = 53285
+Total final events after processing         = 53285
+
+Hay que confiar en estos números.
+Una vez juntados los dataframes, se pueden repetir event ID en diferentes runs.
+Por tanto, event.nunique() ya no es confiable.

@@ -1,0 +1,12 @@
+# Archivos de datos grandes
+*.h5
+*.root
+*.csv
+
+# Directorios de salida y caché
+salidas/
+__pycache__/
+.ipynb_checkpoints/
+
+# Archivos de configuración local
+config.local

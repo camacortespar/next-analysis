@@ -1,0 +1,8 @@
+{
+    "python.analysis.extraPaths": [
+        "./libs"
+    ],
+    "editor.foldingImportsByDefault": true,
+    "editor.fontSize": 14,
+    "editor.cursorStyle": "line"
+}

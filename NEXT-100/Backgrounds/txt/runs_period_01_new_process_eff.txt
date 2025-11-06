@@ -1,0 +1,300 @@
+--- Processing Run 15539 ---
+  Loaded: 15454 events (98.95%)
+--- Processing Run 15540 ---
+  Loaded: 22110 events (98.15%)
+--- Processing Run 15541 ---
+  Loaded: 28554 events (98.04%)
+--- Processing Run 15542 ---
+  Loaded: 29189 events (98.22%)
+--- Processing Run 15543 ---
+  Loaded: 28498 events (97.73%)
+--- Processing Run 15544 ---
+  Loaded: 28898 events (97.97%)
+--- Processing Run 15545 ---
+  Loaded: 28851 events (98.01%)
+
+
+--- Processing Run 15539 ---
+  After drop negative Z: 13528 events (87.54%)
+--- Processing Run 15540 ---
+  After drop negative Z: 19391 events (87.70%)
+--- Processing Run 15541 ---
+  After drop negative Z: 25182 events (88.19%)
+--- Processing Run 15542 ---
+  After drop negative Z: 25720 events (88.12%)
+--- Processing Run 15543 ---
+  After drop negative Z: 25208 events (88.46%)
+--- Processing Run 15544 ---
+  After drop negative Z: 25538 events (88.37%)
+--- Processing Run 15545 ---
+  After drop negative Z: 25472 events (88.29%)
+
+
+--- Processing Run 15539 ---
+    nS1 = 0: 1102 events (8.15%)
+    nS1 = 1: 11591 events (85.68%)
+      NO Po-like: 9551 events (82.40%)
+  After S1 signal cuts: 10653 events (78.75%)
+--- Processing Run 15540 ---
+    nS1 = 0: 1831 events (9.44%)
+    nS1 = 1: 16336 events (84.25%)
+      NO Po-like: 13436 events (82.25%)
+  After S1 signal cuts: 15267 events (78.73%)
+--- Processing Run 15541 ---
+    nS1 = 0: 2230 events (8.86%)
+    nS1 = 1: 21370 events (84.86%)
+      NO Po-like: 17448 events (81.65%)
+  After S1 signal cuts: 19678 events (78.14%)
+--- Processing Run 15542 ---
+    nS1 = 0: 2279 events (8.86%)
+    nS1 = 1: 21836 events (84.90%)
+      NO Po-like: 17772 events (81.39%)
+  After S1 signal cuts: 20051 events (77.96%)
+--- Processing Run 15543 ---
+    nS1 = 0: 2307 events (9.15%)
+    nS1 = 1: 21341 events (84.66%)
+      NO Po-like: 17448 events (81.76%)
+  After S1 signal cuts: 19755 events (78.37%)
+--- Processing Run 15544 ---
+    nS1 = 0: 2236 events (8.76%)
+    nS1 = 1: 21637 events (84.72%)
+      NO Po-like: 17788 events (82.21%)
+  After S1 signal cuts: 20024 events (78.41%)
+--- Processing Run 15545 ---
+    nS1 = 0: 2301 events (9.03%)
+    nS1 = 1: 21618 events (84.87%)
+      NO Po-like: 17671 events (81.74%)
+  After S1 signal cuts: 19972 events (78.41%)
+
+
+--- Processing Run 15539 ---
+  After S2 signal cut: 9775 events (91.76%)
+--- Processing Run 15540 ---
+  After S2 signal cut: 13897 events (91.03%)
+--- Processing Run 15541 ---
+  After S2 signal cut: 17870 events (90.81%)
+--- Processing Run 15542 ---
+  After S2 signal cut: 18352 events (91.53%)
+--- Processing Run 15543 ---
+  After S2 signal cut: 18048 events (91.36%)
+--- Processing Run 15544 ---
+  After S2 signal cut: 18293 events (91.36%)
+--- Processing Run 15545 ---
+  After S2 signal cut: 18226 events (91.26%)
+
+
+--- Processing Run 15539 ---
+  Electron candidates: 6592 events (67.44%) 
+  Alphas candidates: 3183 events (32.56%) 
+--- Processing Run 15540 ---
+  Electron candidates: 9654 events (69.47%) 
+  Alphas candidates: 4243 events (30.53%) 
+--- Processing Run 15541 ---
+  Electron candidates: 12284 events (68.74%) 
+  Alphas candidates: 5586 events (31.26%) 
+--- Processing Run 15542 ---
+  Electron candidates: 12700 events (69.20%) 
+  Alphas candidates: 5652 events (30.80%) 
+--- Processing Run 15543 ---
+  Electron candidates: 12555 events (69.56%) 
+  Alphas candidates: 5493 events (30.44%) 
+--- Processing Run 15544 ---
+  Electron candidates: 12543 events (68.57%) 
+  Alphas candidates: 5750 events (31.43%) 
+--- Processing Run 15545 ---
+  Electron candidates: 12517 events (68.68%) 
+  Alphas candidates: 5709 events (31.32%)
+
+
+--- Processing Run 15539 ---
+  → Electrons (6592 events, 3391829 hits)
+  Clean Electrons: 6584 events (99.88%), 2446501 hits 
+
+--- Processing Run 15540 ---
+  → Electrons (9654 events, 4987515 hits)
+  Clean Electrons: 9650 events (99.96%), 3599425 hits 
+
+--- Processing Run 15541 ---
+  → Electrons (12284 events, 6281254 hits)
+  Clean Electrons: 12277 events (99.94%), 4537393 hits 
+
+--- Processing Run 15542 ---
+  → Electrons (12700 events, 6590270 hits)
+  Clean Electrons: 12695 events (99.96%), 4734583 hits 
+
+--- Processing Run 15543 ---
+  → Electrons (12555 events, 6595811 hits)
+  Clean Electrons: 12550 events (99.96%), 4750693 hits 
+
+--- Processing Run 15544 ---
+  → Electrons (12543 events, 6507832 hits)
+  Clean Electrons: 12536 events (99.94%), 4701499 hits 
+
+--- Processing Run 15545 ---
+  → Electrons (12517 events, 6463455 hits)
+  Clean Electrons: 12510 events (99.94%), 4683161 hits
+
+
+--- Processing Run 15539 ---
+  → Alphas (3183 events, 16407011 hits)
+  Clean Alphas: 3183 events (100.00%), 749210 hits 
+--- Processing Run 15540 ---
+  → Alphas (4243 events, 21752310 hits)
+  Clean Alphas: 4241 events (99.95%), 993657 hits 
+--- Processing Run 15541 ---
+  → Alphas (5586 events, 28707087 hits)
+  Clean Alphas: 5583 events (99.95%), 1316028 hits 
+--- Processing Run 15542 ---
+  → Alphas (5652 events, 29144851 hits)
+  Clean Alphas: 5651 events (99.98%), 1331422 hits 
+--- Processing Run 15543 ---
+  → Alphas (5493 events, 28282724 hits)
+  Clean Alphas: 5491 events (99.96%), 1294779 hits 
+--- Processing Run 15544 ---
+  → Alphas (5750 events, 29699300 hits)
+  Clean Alphas: 5750 events (100.00%), 1360680 hits 
+--- Processing Run 15545 ---
+  → Alphas (5709 events, 29468963 hits)
+  Clean Alphas: 5708 events (99.98%), 1348463 hits
+
+
+--- Processing Run 15539 ---
+  Electron: 5113 events (77.66%)
+  Alpha: 3174 events (99.72%)
+
+--- Processing Run 15540 ---
+  Electron: 7391 events (76.59%)
+  Alpha: 4220 events (99.50%)
+
+--- Processing Run 15541 ---
+  Electron: 9449 events (76.97%)
+  Alpha: 5559 events (99.57%)
+
+--- Processing Run 15542 ---
+  Electron: 9816 events (77.32%)
+  Alpha: 5630 events (99.63%)
+
+--- Processing Run 15543 ---
+  Electron: 9740 events (77.61%)
+  Alpha: 5473 events (99.67%)
+
+--- Processing Run 15544 ---
+  Electron: 9734 events (77.65%)
+  Alpha: 5735 events (99.74%)
+
+--- Processing Run 15545 ---
+  Electron: 9654 events (77.17%)
+  Alpha: 5685 events (99.60%)
+
+
+--- Processing Run 15539 ---
+
+→ Electron:
+  NO S1 events: 411 events...
+  Fiducial: 159 events (3.11%) || Rate = 4.54e-03 Hz
+  Tube:     3932 events (76.90%)
+  Anode:    523 events (10.23%)
+  Cathode:  499 events (9.76%)
+
+→ Alpha:
+  NO S1 events: 61 events...
+  Fiducial: 783 events (24.67%) || Rate = 2.23e-02 Hz
+  Tube:     420 events (13.23%)
+  Anode:    62 events (1.95%)
+  Cathode:  1909 events (60.14%)
+
+--- Processing Run 15540 ---
+
+→ Electron:
+  NO S1 events: 722 events...
+  Fiducial: 221 events (2.99%) || Rate = 4.29e-03 Hz
+  Tube:     5535 events (74.89%)
+  Anode:    893 events (12.08%)
+  Cathode:  742 events (10.04%)
+
+→ Alpha:
+  NO S1 events: 100 events...
+  Fiducial: 1026 events (24.31%) || Rate = 1.99e-02 Hz
+  Tube:     545 events (12.91%)
+  Anode:    101 events (2.39%)
+  Cathode:  2548 events (60.38%)
+
+--- Processing Run 15541 ---
+
+→ Electron:
+  NO S1 events: 847 events...
+  Fiducial: 273 events (2.89%) || Rate = 4.16e-03 Hz
+  Tube:     7146 events (75.63%)
+  Anode:    1082 events (11.45%)
+  Cathode:  948 events (10.03%)
+
+→ Alpha:
+  NO S1 events: 110 events...
+  Fiducial: 1341 events (24.12%) || Rate = 2.04e-02 Hz
+  Tube:     721 events (12.97%)
+  Anode:    115 events (2.07%)
+  Cathode:  3382 events (60.84%)
+
+--- Processing Run 15542 ---
+
+→ Electron:
+  NO S1 events: 860 events...
+  Fiducial: 297 events (3.03%) || Rate = 4.43e-03 Hz
+  Tube:     7479 events (76.19%)
+  Anode:    1089 events (11.09%)
+  Cathode:  951 events (9.69%)
+
+→ Alpha:
+  NO S1 events: 117 events...
+  Fiducial: 1380 events (24.51%) || Rate = 2.06e-02 Hz
+  Tube:     794 events (14.10%)
+  Anode:    119 events (2.11%)
+  Cathode:  3337 events (59.27%)
+
+--- Processing Run 15543 ---
+
+→ Electron:
+  NO S1 events: 910 events...
+  Fiducial: 294 events (3.02%) || Rate = 4.46e-03 Hz
+  Tube:     7401 events (75.99%)
+  Anode:    1136 events (11.66%)
+  Cathode:  909 events (9.33%)
+
+→ Alpha:
+  NO S1 events: 99 events...
+  Fiducial: 1317 events (24.06%) || Rate = 2.00e-02 Hz
+  Tube:     752 events (13.74%)
+  Anode:    102 events (1.86%)
+  Cathode:  3302 events (60.33%)
+
+--- Processing Run 15544 ---
+
+→ Electron:
+  NO S1 events: 855 events...
+  Fiducial: 336 events (3.45%) || Rate = 5.07e-03 Hz
+  Tube:     7393 events (75.95%)
+  Anode:    1082 events (11.12%)
+  Cathode:  923 events (9.48%)
+
+→ Alpha:
+  NO S1 events: 118 events...
+  Fiducial: 1440 events (25.11%) || Rate = 2.17e-02 Hz
+  Tube:     726 events (12.66%)
+  Anode:    122 events (2.13%)
+  Cathode:  3447 events (60.10%)
+
+--- Processing Run 15545 ---
+
+→ Electron:
+  NO S1 events: 856 events...
+  Fiducial: 299 events (3.10%) || Rate = 4.53e-03 Hz
+  Tube:     7345 events (76.08%)
+  Anode:    1100 events (11.39%)
+  Cathode:  910 events (9.43%)
+
+→ Alpha:
+  NO S1 events: 120 events...
+  Fiducial: 1382 events (24.31%) || Rate = 2.09e-02 Hz
+  Tube:     755 events (13.28%)
+  Anode:    121 events (2.13%)
+  Cathode:  3427 events (60.28%)

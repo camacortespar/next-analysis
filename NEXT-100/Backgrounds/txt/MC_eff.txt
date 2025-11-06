@@ -1,0 +1,103 @@
+--- Bi214 ---
+
+  Volume: OPTICAL_PAD || Efficiency: 0.9945 ± 0.0005 || Reco Events: 22239.0 ± 11.0152
+  Volume: GATE_RING || Efficiency: 0.9024 ± 0.0041 || Reco Events: 4662.0 ± 21.3267
+  Volume: LIGHT_TUBE || Efficiency: 0.9754 ± 0.0007 || Reco Events: 51650.0 ± 35.6636
+  Volume: PMT || Efficiency: 0.9928 ± 0.0004 || Reco Events: 45169.0 ± 18.0180
+  Volume: EDPM_SEAL || Efficiency: 1.0000 ± 0.0000 || Reco Events: 1.0 ± 0.0000
+  Volume: PEDESTAL || Efficiency: 0.9792 ± 0.0057 || Reco Events: 611.0 ± 3.5678
+  Volume: EP_COPPER_PLATE || Efficiency: 0.9938 ± 0.0004 || Reco Events: 35737.0 ± 14.9199
+  Volume: DB_PLUG || Efficiency: 0.9377 ± 0.0056 || Reco Events: 1761.0 ± 10.4743
+  Volume: TP_COPPER_PLATE || Efficiency: 0.9291 ± 0.0066 || Reco Events: 1403.0 ± 9.9709
+  Volume: FIELD_RING || Efficiency: 0.9867 ± 0.0003 || Reco Events: 168820.0 ± 47.4404
+  Volume: SAPPHIRE_WINDOW || Efficiency: 0.9934 ± 0.0002 || Reco Events: 198686.0 ± 36.1299
+  Volume: SHIELDING_STEEL || Efficiency: 0.9751 ± 0.0110 || Reco Events: 196.0 ± 2.2081
+  Volume: SHIELDING_STRUCT || Efficiency: 0.9968 ± 0.0032 || Reco Events: 308.0 ± 0.9984
+  Volume: BUBBLE_SEAL || Efficiency: 1.0000 ± 0.0000 || Reco Events: 1.0 ± 0.0000
+  Volume: CATHODE_RING || Efficiency: 0.9891 ± 0.0014 || Reco Events: 5542.0 ± 7.7676
+  Volume: ANODE_RING || Efficiency: 0.8761 ± 0.0048 || Reco Events: 4109.0 ± 22.5616
+  Volume: HDPE_TUBE || Efficiency: 0.9940 ± 0.0007 || Reco Events: 13637.0 ± 9.0828
+  Volume: VESSEL || Efficiency: 0.9918 ± 0.0007 || Reco Events: 17678.0 ± 12.0743
+  Volume: SIPM_BOARD || Efficiency: 0.5487 ± 0.0008 || Reco Events: 210829.0 ± 308.4692
+  Volume: ICS || Efficiency: 0.9869 ± 0.0006 || Reco Events: 38964.0 ± 22.5667
+  Volume: SHIELDING_LEAD || Efficiency: 0.9821 ± 0.0025 || Reco Events: 2852.0 ± 7.1462
+  Volume: PMT_BASE || Efficiency: 0.9858 ± 0.0008 || Reco Events: 22414.0 ± 17.8168
+
+Total efficiency for Bi214 = 0.8784 ± 0.0005
+Total reconstructed events for Bi214 = 847269.0 ± 320.9481
+
+--- Tl208 ---
+
+  Volume: OPTICAL_PAD || Efficiency: 0.9889 ± 0.0008 || Reco Events: 16258.0 ± 13.4159
+  Volume: GATE_RING || Efficiency: 0.8800 ± 0.0162 || Reco Events: 352.0 ± 6.4992
+  Volume: LIGHT_TUBE || Efficiency: 0.9790 ± 0.0004 || Reco Events: 144754.0 ± 55.1257
+  Volume: PMT || Efficiency: 0.9886 ± 0.0005 || Reco Events: 43776.0 ± 22.3874
+  Volume: PEDESTAL || Efficiency: 0.9637 ± 0.0037 || Reco Events: 2493.0 ± 9.5176
+  Volume: EP_COPPER_PLATE || Efficiency: 0.9902 ± 0.0005 || Reco Events: 40577.0 ± 19.9021
+  Volume: DB_PLUG || Efficiency: 0.9020 ± 0.0038 || Reco Events: 5569.0 ± 23.3605
+  Volume: TP_COPPER_PLATE || Efficiency: 0.8729 ± 0.0193 || Reco Events: 261.0 ± 5.7594
+  Volume: FIELD_RING || Efficiency: 0.9777 ± 0.0009 || Reco Events: 26223.0 ± 24.1601
+  Volume: SAPPHIRE_WINDOW || Efficiency: 0.9899 ± 0.0003 || Reco Events: 112992.0 ± 33.7549
+  Volume: SHIELDING_STEEL || Efficiency: 0.9782 ± 0.0082 || Reco Events: 314.0 ± 2.6167
+  Volume: SHIELDING_STRUCT || Efficiency: 0.9754 ± 0.0046 || Reco Events: 1112.0 ± 5.2261
+  Volume: CATHODE_RING || Efficiency: 0.9930 ± 0.0040 || Reco Events: 424.0 ± 1.7260
+  Volume: ANODE_RING || Efficiency: 0.8728 ± 0.0168 || Reco Events: 343.0 ± 6.6060
+  Volume: HDPE_TUBE || Efficiency: 0.9881 ± 0.0020 || Reco Events: 2980.0 ± 5.9641
+  Volume: VESSEL || Efficiency: 0.9837 ± 0.0008 || Reco Events: 24080.0 ± 19.8115
+  Volume: SIPM_BOARD || Efficiency: 0.6567 ± 0.0013 || Reco Events: 89285.0 ± 175.0683
+  Volume: ICS || Efficiency: 0.9758 ± 0.0014 || Reco Events: 11832.0 ± 16.9092
+  Volume: SHIELDING_LEAD || Efficiency: 0.9732 ± 0.0033 || Reco Events: 2320.0 ± 7.8919
+  Volume: PMT_BASE || Efficiency: 0.9743 ± 0.0013 || Reco Events: 15246.0 ± 19.7907
+
+Total efficiency for Tl208 = 0.9290 ± 0.0005
+Total reconstructed events for Tl208 = 541191.0 ± 196.0830
+
+--- Co60 ---
+
+  Volume: OPTICAL_PAD || Efficiency: 0.9941 ± 0.0006 || Reco Events: 17263.0 ± 10.0698
+  Volume: LIGHT_TUBE || Efficiency: 0.9833 ± 0.0024 || Reco Events: 2709.0 ± 6.7255
+  Volume: PMT || Efficiency: 0.9936 ± 0.0001 || Reco Events: 846503.0 ± 73.7417
+  Volume: PEDESTAL || Efficiency: 0.9820 ± 0.0044 || Reco Events: 875.0 ± 3.9639
+  Volume: EP_COPPER_PLATE || Efficiency: 0.9944 ± 0.0001 || Reco Events: 251129.0 ± 37.4714
+  Volume: DB_PLUG || Efficiency: 0.9200 ± 0.0543 || Reco Events: 23.0 ± 1.3565
+  Volume: FIELD_RING || Efficiency: 0.9875 ± 0.0007 || Reco Events: 24066.0 ± 17.3546
+  Volume: SAPPHIRE_WINDOW || Efficiency: 1.0000 ± 0.0000 || Reco Events: 2.0 ± 0.0000
+  Volume: SHIELDING_STEEL || Efficiency: 0.9947 ± 0.0031 || Reco Events: 559.0 ± 1.7274
+  Volume: SHIELDING_STRUCT || Efficiency: 0.9881 ± 0.0048 || Reco Events: 497.0 ± 2.4348
+  Volume: HDPE_TUBE || Efficiency: 0.9926 ± 0.0005 || Reco Events: 26489.0 ± 13.9838
+  Volume: VESSEL || Efficiency: 0.9938 ± 0.0007 || Reco Events: 13955.0 ± 9.2984
+  Volume: SIPM_BOARD || Efficiency: 0.8561 ± 0.0013 || Reco Events: 60407.0 ± 93.2234
+  Volume: PMT_BASE || Efficiency: 0.9891 ± 0.0014 || Reco Events: 5528.0 ± 7.7675
+
+Total efficiency for Co60 = 0.9869 ± 0.0002
+Total reconstructed events for Co60 = 1250005.0 ± 127.8639
+
+--- K40 ---
+
+  Volume: OPTICAL_PAD || Efficiency: 0.9934 ± 0.0007 || Reco Events: 12890.0 ± 9.2428
+  Volume: LIGHT_TUBE || Efficiency: 0.9928 ± 0.0005 || Reco Events: 34098.0 ± 15.6911
+  Volume: PMT || Efficiency: 0.9925 ± 0.0003 || Reco Events: 65193.0 ± 22.1646
+  Volume: PEDESTAL || Efficiency: 0.9785 ± 0.0150 || Reco Events: 91.0 ± 1.3989
+  Volume: EP_COPPER_PLATE || Efficiency: 0.9941 ± 0.0006 || Reco Events: 14937.0 ± 9.4060
+  Volume: DB_PLUG || Efficiency: 0.9468 ± 0.0138 || Reco Events: 249.0 ± 3.6407
+  Volume: TP_COPPER_PLATE || Efficiency: 0.7857 ± 0.1097 || Reco Events: 11.0 ± 1.5353
+  Volume: FIELD_RING || Efficiency: 0.9860 ± 0.0012 || Reco Events: 9915.0 ± 11.7908
+  Volume: SAPPHIRE_WINDOW || Efficiency: 0.9940 ± 0.0013 || Reco Events: 3477.0 ± 4.5688
+  Volume: SHIELDING_STEEL || Efficiency: 0.9828 ± 0.0085 || Reco Events: 228.0 ± 1.9827
+  Volume: SHIELDING_STRUCT || Efficiency: 1.0000 ± 0.0000 || Reco Events: 45.0 ± 0.0000
+  Volume: BUBBLE_SEAL || Efficiency: 1.0000 ± 0.0000 || Reco Events: 4.0 ± 0.0000
+  Volume: HDPE_TUBE || Efficiency: 0.9927 ± 0.0003 || Reco Events: 86438.0 ± 25.1072
+  Volume: VESSEL || Efficiency: 0.9926 ± 0.0009 || Reco Events: 8709.0 ± 8.0323
+  Volume: SIPM_BOARD || Efficiency: 0.2277 ± 0.0007 || Reco Events: 88444.0 ± 261.3482
+  Volume: ICS || Efficiency: 0.9901 ± 0.0099 || Reco Events: 100.0 ± 0.9950
+  Volume: SHIELDING_LEAD || Efficiency: 0.9901 ± 0.0099 || Reco Events: 100.0 ± 0.9950
+  Volume: PMT_BASE || Efficiency: 0.9845 ± 0.0009 || Reco Events: 16822.0 ± 16.1221
+
+Total efficiency for K40 = 0.7941 ± 0.0007
+Total reconstructed events for K40 = 341751.0 ± 265.2404
+
+###################################################################################################
+
+Hay que confiar en estos números.
+Una vez juntados los dataframes, se pueden repetir event ID en diferentes runs.
+Por tanto, event.nunique() ya no es confiable.

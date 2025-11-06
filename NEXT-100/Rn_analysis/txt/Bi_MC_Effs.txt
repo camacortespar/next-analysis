@@ -1,0 +1,62 @@
+----- Cathode: 28/08/2025 -----
+First one!
+
+--- Processing Summary ---
+Total events after the reco chain     = 273906 (100.00%)
+Total events after cleaning           = 269926 (98.55%)
+Total events after nS1 cut            = 269280 (99.76%)
+    - of which nS1 = 0 ¬ 33248 (12.32%)
+    - of which nS1 = 1 ¬ 236032 (87.44%)
+Total events after nS2 cut            = 116199 (43.15%)
+Total events after electron selection = 87857 (75.61%)
+Total final events after processing   = 87857
+
+After energy cut (0.5 MeV): 42288 events (48.13%)
+Found 2438 events with nS1 = 0 (Anode candidates)
+--- Classification Results ---
+Fiducial: 135 events (0.32%) || Rate = 4.28e-04 Hz
+Tube:     151 events (0.36%)
+Anode:    2459 events (5.81%)
+Cathode:  39543 events (93.51%)
+
+----- Cathode: 23/09/2025 -----
+
+--- Processing Summary ---
+Total generated events                = 385000 (100.00%)
+Total events after the reco chain     = 276443 (71.80%)
+Total events after cleaning           = 276443 (100.00%)
+Total events after nS1 cut            = 275793 (99.76%)
+    - of which nS1 = 0 ¬ 37645 (13.62%)
+    - of which nS1 = 1 ¬ 238148 (86.15%)
+Total events after nS2 cut            = 121526 (44.06%)
+Total events after electron selection = 93186 (76.68%)
+Total final events after processing   = 93186
+
+After energy cut (0.5 MeV): 42288 events (45.38%)
+Found 2439 events with nS1 = 0 (Anode candidates)
+--- Classification Results ---
+Fiducial: 98 events (0.23%) || Rate = (0.3108 ± 0.0314) mHz
+Tube:     168 events (0.40%)
+Anode:    2460 events (5.82%)
+Cathode:  39562 events (93.55%)
+
+----- All: 06/10/2025 -----
+
+--- Processing Summary ---
+Total generated events                = 2918945850 (100.00%)
+Total events after the reco chain     = 941017 (0.03%)
+Total events after cleaning           = 941017 (100.00%)
+Total events after nS1 cut            = 938281 (99.71%)
+    - of which nS1 = 0 ¬ 30629 (3.25%)
+    - of which nS1 = 1 ¬ 907652 (96.45%)
+Total events after nS2 cut            = 628867 (67.02%)
+Total events after electron selection = 628453 (99.93%)
+Total final events after processing   = 628453
+
+After energy cut (0.5 MeV): 456164 events (72.59%)
+Found 2043 events with nS1 = 0 (Anode candidates)
+--- Classification Results ---
+Fiducial: (162683 ± 306) events (35.66%) || Rate = (0.5159 ± 0.0013) mHz
+Tube:     211635 events (46.39%)
+Anode:    21042 events (4.61%)
+Cathode:  60804 events (13.33%)
