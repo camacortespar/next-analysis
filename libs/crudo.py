@@ -2,13 +2,14 @@ from   datetime import datetime
 import locale
 import numpy  as np
 import os
-import pandas as pd                                     # type: ignore
+import pandas as pd
 from . import plotting_tools as pt
 from   scipy.spatial.distance import cdist
-from   sklearn.neighbors import BallTree                # type: ignore
-from   sklearn.neighbors import NearestNeighbors        # type: ignore
-from   sklearn.exceptions import NotFittedError         # type: ignore
-from   typing import List, Callable
+from sklearn.cluster import DBSCAN
+from sklearn.neighbors import BallTree
+from sklearn.neighbors import NearestNeighbors
+from sklearn.exceptions import NotFittedError
+from typing import List, Callable
 
 
 ###############################
@@ -436,6 +437,60 @@ def drop_hits_under_Q_threshold(
 
     return drop_hits
 
+def hits_clusterizer( eps         : float
+                    , min_samples : float
+                    , scale_xy    : float = 14.55
+                    , scale_z     : float = 3.7
+                    ) -> Callable:
+    """
+    Cluster hits in 3D space for each event using DBSCAN.
+    The coordinates are scaled to account for detector geometry differences in samplig 
+    
+    Parameters
+    ----------
+    eps         : float, Epsilon value for DBSCAN.
+    min_samples : int, Min Samples value for DBSCAN.
+    scale_xy    : float, scale factor for XY coordinates.
+    scale_z     : float, scale factor for Z coordinate.
+    
+    Returns
+    -------
+    Callable
+    A function that takes a DataFrame of hits and returns the same DataFrame 
+    with an added 'cluster' column, which are the clusters labels assigned by DBSCAN
+    (-1 for noise).
+    """
+    def cluster_tagger(df_hits: pd.DataFrame) -> pd.DataFrame:
+        if df_hits.empty:
+            return df_hits.assign(cluster=pd.Series(dtype=int))  
+
+        # Pre-allocate array for cluster labels
+        cluster_labels = np.full(len(df_hits), -9999, dtype=int)
+
+        # Get values once (faster than repeatedly accessing DataFrame columns)
+        coords = df_hits[['X', 'Y', 'Z']].to_numpy()
+        events = df_hits['event'].to_numpy()
+
+        # Use np.unique to get sorted event IDs
+        unique_events = np.unique(events)
+
+        for event_id in unique_events:
+            mask = (events == event_id)
+            X = coords[mask].copy()
+
+            # Scale
+            X[:, :2] /= scale_xy
+            X[:, 2]  /= scale_z
+
+            # DBSCAN clustering
+            labels = DBSCAN(eps=eps, min_samples=min_samples).fit_predict(X)
+            cluster_labels[mask] = labels
+
+        df_hits['cluster'] = cluster_labels
+
+        return df_hits
+    
+    return cluster_tagger
 ##################################
 # ----- Energy Corrections ----- #
 ##################################
