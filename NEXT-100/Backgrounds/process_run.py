@@ -380,8 +380,7 @@ def main():
                                 SUMMARY_PATH,
                                 mode='a',
                                 header=not os.path.exists(SUMMARY_PATH),
-                                index=True,
-                                sep='\t'
+                                index='Run_ID',
                              )
         print("Summary file updated.")
     except IOError as e:
