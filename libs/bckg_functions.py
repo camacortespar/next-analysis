@@ -254,7 +254,8 @@ def tag_event_by_detector_region(
                                     df_event: pd.DataFrame,
                                     z_cut_low: float,
                                     z_cut_high: float,
-                                    r_cut_high: float
+                                    r_cut_high: float,
+                                    event_col: str = 'event'
                                 ) -> pd.Series:
     """
     Assigns a detector region tag to each event based on its full track extent.
@@ -269,10 +270,11 @@ def tag_event_by_detector_region(
 
     Args:
         df_event (pd.DataFrame): The event-level summary DataFrame. 
-                                 Must contain 'event', 'Z_min', 'Z_max', 'R_max', and 'nS1' columns.
+                                 Must contain columns like 'Z_min', 'Z_max', 'R_max', and 'nS1'.
         z_cut_low (float): The lower Z boundary for the fiducial volume.
         z_cut_high (float): The upper Z boundary for the fiducial volume.
         r_cut_high (float): The radial boundary for the fiducial volume.
+        event_col (str): The name of the column representing the event ID. Default is 'event'.
 
     Returns:
         pd.Series: A pandas Series with the same index as `df_event`, containing
@@ -299,5 +301,5 @@ def tag_event_by_detector_region(
     # Apply classification
     region_tags = np.select(conditions, choices, default='unclassified')
 
-    # Return a pandas Series with the event ID as the index for easy mapping
-    return pd.Series(region_tags, index=df_event['event'])
+    # Return a pandas Series with the specified event column as the index for easy mapping
+    return pd.Series(region_tags, index=df_event[event_col])

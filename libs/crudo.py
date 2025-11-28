@@ -437,10 +437,11 @@ def drop_hits_under_Q_threshold(
 
     return drop_hits
 
-def hits_clusterizer( eps         : float
-                    , min_samples : float
-                    , scale_xy    : float = 14.55
-                    , scale_z     : float = 3.7
+def hits_clusterizer( eps          : float
+                    , min_samples  : float
+                    , scale_xy     : float = 14.55
+                    , scale_z      : float = 3.7
+                    , event_column : str = 'event'
                     ) -> Callable:
     """
     Cluster hits in 3D space for each event using DBSCAN.
@@ -469,7 +470,7 @@ def hits_clusterizer( eps         : float
 
         # Get values once (faster than repeatedly accessing DataFrame columns)
         coords = df_hits[['X', 'Y', 'Z']].to_numpy()
-        events = df_hits['event'].to_numpy()
+        events = df_hits[event_column].to_numpy()
 
         # Use np.unique to get sorted event IDs
         unique_events = np.unique(events)
@@ -491,6 +492,8 @@ def hits_clusterizer( eps         : float
         return df_hits
     
     return cluster_tagger
+
+
 ##################################
 # ----- Energy Corrections ----- #
 ##################################

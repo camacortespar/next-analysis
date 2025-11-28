@@ -262,20 +262,31 @@ def hist_2D(x, y, x_bins=50, y_bins=50, wei=None):
 
 def event_display(
                         data: pd.DataFrame,
-                        variable='E_corr', 
+                        variable='E_corr',
+                        event_column='event',
                         event=None
                     ):
     """
-    
+    Display event data with hit distributions in XY and YZ planes.
+
+    Parameters:
+        data (pd.DataFrame): Input data containing event information.
+        variable (str): Column name for the variable to color the scatter plot. Default is 'E_corr'.
+        event_column (str): Column name for the event IDs. Default is 'event'.
+        event (int, optional): Specific event ID to plot. If None, a random event is chosen. Default is None.
     """
-     # Get unique event IDs for the slider/dropdown
-    event_ids = sorted(data['event'].unique())
+    # Check if the event column exists in the DataFrame
+    if event_column not in data.columns:
+        raise ValueError(f"No column named '{event_column}' found in the DataFrame.")
+
+    # Get unique event IDs for the slider/dropdown
+    event_ids = sorted(data[event_column].unique())
 
     # Define the plotting function that will be called by the widget
     def plot_event(evt_to_plot):
 
         # Select data for the chosen event
-        event_data = data[data['event'] == evt_to_plot]
+        event_data = data[data[event_column] == evt_to_plot]
 
         # Determine the energy column name
         if variable in data.columns:

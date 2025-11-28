@@ -34,10 +34,10 @@ Usage:
 import sys
 sys.path.append('/lhome/ific/c/ccortesp/Analysis/')
 
+from libs import bckg_functions as bf
 from libs import crudo
 from libs import fit_functions as ff
 from libs import plotting_tools as pt
-from libs import bckg_functions as bf
 
 import argparse
 import csv
