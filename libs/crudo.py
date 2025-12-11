@@ -509,6 +509,7 @@ def correct_S1e(
                 ):
     """
     Corrects S1e values using a linear model with the cathode as the reference.
+    It hands NaN values in the S1e column by propagating them to the corrected column.
 
     Parameters:
         df (pd.DataFrame): DataFrame containing S1 energy and drift time data.
