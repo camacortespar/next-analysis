@@ -111,21 +111,12 @@ def apply_cut_and_update(
 
         return df_doro_updated, df_soph_updated
 
-def tag_particles(df: pd.DataFrame, energy_threshold: float) -> pd.DataFrame:
-    """
-    Tags hits as 'electron' or 'alpha' based on total event energy.
-    """
-    event_energy = df.groupby('event')['E_corr'].transform('sum')
-    df['particle'] = np.where(event_energy <= energy_threshold, 'electron', 'alpha')
-    
-    return df
-
-def process_electrons(
-                        df_electron: pd.DataFrame,
+def deal_spurious_hits(
+                        df_soph: pd.DataFrame,
                         cluster_config: dict
                      ) -> pd.DataFrame:
     """
-    Processes a DataFrame of electron hits to filter noise and conserve energy.
+    Processes a DataFrame of hits to filter noise and conserve energy.
 
     The process involves three main steps:
     1.  Tags all hits as either "isolated" or "non-isolated" using a 3D clustering algorithm.
@@ -135,36 +126,36 @@ def process_electrons(
         non-isolated hits of the same event.
 
     Args:
-        df_electron (pd.DataFrame): DataFrame containing only hits from electron-like events.
+        df_soph (pd.DataFrame): DataFrame at hit-level.
         cluster_config (dict): A dictionary with parameters for the clustering algorithm,
                                e.g., {'distance': [16., 16., 4.], 'nhit': 5}.
 
     Returns:
         pd.DataFrame: A DataFrame containing only the final, processed non-isolated hits,
-                      with an added 'E_final_pe' column containing the redistributed energy.
+                      with an added 'E_hit_pe' column containing the redistributed energy per hit.
     """
-    if df_electron.empty:
-        return pd.DataFrame(columns=list(df_electron.columns) + ['E_hit_pe'])
+    if df_soph.empty:
+        return pd.DataFrame(columns=list(df_soph.columns) + ['E_hit_pe'])
 
     # STEP A: Tag all hits as isolated or non.isolated
     splitter = split_isolated_clusters_3D(**cluster_config)
     isolated_hits_indices = []
-    for _, group in df_electron.groupby(['event', 'npeak']):
+    for _, group in df_soph.groupby(['event', 'npeak']):
         if group.empty: continue
         _, isolated_df = splitter(group)
         if not isolated_df.empty:
             isolated_hits_indices.append(isolated_df.index)
     # Tagging
-    df_electron['is_isolated'] = False
+    df_soph['is_isolated'] = False
     if isolated_hits_indices:
         iso_indices = np.concatenate(isolated_hits_indices)
-        df_electron.loc[iso_indices, 'is_isolated'] = True
+        df_soph.loc[iso_indices, 'is_isolated'] = True
 
     # STEP B: Identify "good" isolated hits
-    non_isolated_hits_df = df_electron[~df_electron['is_isolated']].copy()
-    isolated_hits_df     = df_electron[df_electron['is_isolated']].copy()
+    non_isolated_hits_df = df_soph[~df_soph['is_isolated']].copy()
+    isolated_hits_df     = df_soph[df_soph['is_isolated']].copy()
     if non_isolated_hits_df.empty:
-        return pd.DataFrame(columns=list(df_electron.columns) + ['E_hit_pe'])
+        return pd.DataFrame(columns=list(df_soph.columns) + ['E_hit_pe'])
 
     # Find the Z-span for the main track of each event
     z_ranges = non_isolated_hits_df.groupby('event')['Z'].agg(['min', 'max']).rename(columns={'min': 'Z_min', 'max': 'Z_max'})
@@ -214,44 +205,118 @@ def aggregate_to_event_level(df_soph: pd.DataFrame, df_doro: pd.DataFrame) -> pd
     if df_soph.empty:
         return pd.DataFrame()
 
-    # ----- Dorothea Aggregation ----- #
-    doro_agg_dict = {
-                        'nS1': ('nS1', 'max'),
-                        'nS2': ('nS2', 'max'),
-                        'S1e': ('S1e', 'max'),
-                        'S1e_corr': ('S1e_corr', 'max'),
-                    }
-    doro_agg_df = df_doro.groupby('event', as_index=False).agg(**doro_agg_dict)
+    # ----- Dorothea Info ----- #
+    doro_info_df = df_doro.groupby('event').agg(
+                                                    time = ('time', 'mean'),
+                                                    nS1  = ('nS1', 'first'),
+                                                    nS2  = ('nS2', 'first'),
+                                                    S1e_max = ('S1e', 'max'),
+                                                    S1e_corr_max = ('S1e_corr', 'max'),
+                                                    raw_event_hits_size = ('raw_event_hits_size', 'first')
+    )
 
-    # ----- Sophronia Aggregation ----- #
-    soph_agg_dict = {
-                        'time': ('time', 'mean'),
-                        'X_bary': ('X', lambda x: weighted_avg(x, df_soph.loc[x.index, 'E_hit_pe'])),
-                        'Y_bary': ('Y', lambda y: weighted_avg(y, df_soph.loc[y.index, 'E_hit_pe'])),
-                        'Z_bary': ('Z', lambda z: weighted_avg(z, df_soph.loc[z.index, 'E_hit_pe'])),
-                        'E_pe': ('E_hit_pe', 'sum'),
-                        'Z_min': ('Z', 'min'),
-                        'Z_max': ('Z', 'max'),
-                        'R_max': ('X', lambda g: R_max_func(df_soph.loc[g.index])),
-                        'particle': ('particle', 'first')
-                    }
+    # ----- Sophronia Info ----- #
+    # Event-level
+    soph_event_info_df = df_soph.groupby('event').agg(
+                                                            X_bary = ('X', lambda x: weighted_avg(x, df_soph.loc[x.index, 'E_hit_pe'])),
+                                                            Y_bary = ('Y', lambda y: weighted_avg(y, df_soph.loc[y.index, 'E_hit_pe'])),
+                                                            Z_bary = ('Z', lambda z: weighted_avg(z, df_soph.loc[z.index, 'E_hit_pe'])),
+                                                            Z_min = ('Z', 'min'),
+                                                            Z_max = ('Z', 'max'),
+                                                            R_max = ('X', lambda g: R_max_func(df_soph.loc[g.index])),
+                                                            E_evt_pe = ('E_hit_pe', 'sum'),
+                                                            event_hits_size = ('event', 'size')
+    )
+    # Peak-level
+    soph_peak_info_df = df_soph.groupby(['event', 'npeak']).agg(
+                                                                    E_peak_pe = ('E_hit_pe', 'sum'),
+                                                                    peak_hits_size = ('event', 'size')
+    ).reset_index()
 
-    # Perform aggregation
-    df_file = df_soph.groupby(['event', 'npeak'], as_index=False).agg(**soph_agg_dict)
-    df_file = pd.merge(df_file, doro_agg_df, on='event', how='left')
+
+    # ----- Merge Final DataFrame ----- #
+    df_file = pd.merge(soph_peak_info_df, soph_event_info_df, on='event', how='left')
+    df_file = pd.merge(df_file, doro_info_df, on='event', how='left')
 
     return df_file
 
-def energy_pe_to_mev(df: pd.DataFrame, slope, intercept) -> pd.DataFrame:
+def energy_pe_to_mev(  df: pd.DataFrame
+                     , slope: float
+                     , intercept: float
+                     , input_column:  str = 'E_evt_pe'
+                     , output_column: str = 'E_evt_mev' ) -> pd.DataFrame:
     """
     Converts energy from photoelectrons (pe) to mega-electronvolts (MeV).
-    Use HE energy scale factor.
+    Use a linear model conversion (for example, HE energy scale).
     """
-    df['E_mev'] = slope * df['E_pe'] + intercept
+    df[output_column] = slope * df[input_column] + intercept
     return df
 
+def tag_particles(
+                    df_peak_level: pd.DataFrame,
+                    size_threshold: int,
+                    s1_energy_threshold: float
+                 ) -> pd.DataFrame:
+    """
+    Tags each peak in a DataFrame as 'electron' or 'alpha' based on its parent event's properties.
+
+    The classification is done at the event-level and then mapped back to each peak.
+    1. For events with nS1 = 1, classification is based on the S1 corrected energy.
+    2. For events with nS1 = 0, classification is based on the event size (number of hits).
+    3. Events with nS1 > 1 are tagged as 'unclassified'.
+
+    Args:
+        df_peak_level (pd.DataFrame): A DataFrame with one row per peak (event/peak level).
+                                      Must contain 'event', 'nS1', 'event_hits_size',
+                                      and 'S1e_corr_max' columns.
+        size_threshold (int): The threshold on the number of hits for nS1=0 events.
+        s1_energy_threshold (float): The threshold on S1 energy for nS1=1 events.
+
+    Returns:
+        pd.DataFrame: The input DataFrame with a new 'particle' column added.
+    """
+
+    if df_peak_level.empty:
+        df_peak_level['particle'] = pd.Series(dtype='object')
+        return df_peak_level
+    
+    # Event-level information
+    event_summary = df_peak_level.groupby('event').agg(
+                                                            nS1=('nS1', 'first'),
+                                                            event_hits_size=('event_hits_size', 'first'),
+                                                            raw_event_hits_size=('n_hits', 'first'),        # RECENTLY ADDED
+                                                            S1e_corr_max=('S1e_corr_max', 'first')
+    )
+    # Masks of S1 multiplicity
+    is_ns1_zero = (event_summary['nS1'] == 0)
+    is_ns1_one  = (event_summary['nS1'] == 1)
+    # is_ns1_multiple = (df_doro['nS1'] > 1)    # To explicitly handle this case
+
+    # Masks for size and energy-based classification
+    is_small_size = (event_summary['raw_event_hits_size'] <= size_threshold)
+    is_s1_low_energy  = (event_summary['S1e_corr_max'] <= s1_energy_threshold)
+    
+
+    # The order of this list defines the priority.
+    conditions = [
+                    is_ns1_zero & is_small_size,        # Case 1: nS1=0 and small size event -> electron
+                    is_ns1_zero & ~is_small_size,       # Case 2: nS1=0 and large size event -> alpha
+                    is_ns1_one & is_s1_low_energy,      # Case 3: nS1=1 and low S1 energy    -> electron
+                    is_ns1_one & ~is_s1_low_energy,     # Case 4: nS1=1 and high S1 energy   -> alpha
+                 ]
+
+    choices = ['electron', 'alpha', 'electron', 'alpha']
+
+    # Map event-level classification back to peak-level DataFrame
+    event_summary['particle'] = np.select(conditions, choices, default='unclassified')
+    event_to_particle_map = event_summary['particle']
+
+    df_peak_level['particle'] = df_peak_level['event'].map(event_to_particle_map)
+    
+    return df_peak_level
+
 def tag_event_by_detector_region(
-                                    df_event: pd.DataFrame,
+                                    df_peak_level: pd.DataFrame,
                                     z_cut_low: float,
                                     z_cut_high: float,
                                     r_cut_high: float,
@@ -281,25 +346,37 @@ def tag_event_by_detector_region(
                    a string tag ('Fiducial', 'Tube', 'Anode', 'Cathode', 'Unclassified')
                    for each event.
     """
+    if df_peak_level.empty:
+        df_peak_level['region'] = pd.Series(dtype='object')
+        return df_peak_level
+    
+    # Event-level information
+    event_summary = df_peak_level.groupby('event').agg(
+                                                            Z_min=('Z_min', 'first'),
+                                                            Z_max=('Z_max', 'first'),
+                                                            R_max=('R_max', 'first'),
+    )
+
+
     # Base masks
-    has_no_s1 = (df_event['nS1'] == 0)
-    crosses_anode_z   = (df_event['Z_min'] < z_cut_low)
-    crosses_cathode_z = (df_event['Z_max'] > z_cut_high)
-    is_fully_z_contained = ((df_event['Z_min'] >= z_cut_low) & (df_event['Z_max'] <= z_cut_high))
-    is_r_contained = (df_event['R_max'] <= r_cut_high)
+    crosses_anode_z   = (event_summary['Z_min'] < z_cut_low)
+    crosses_cathode_z = (event_summary['Z_max'] > z_cut_high)
+    is_fully_z_contained = ((event_summary['Z_min'] >= z_cut_low) & (event_summary['Z_max'] <= z_cut_high))
+    is_r_contained = (event_summary['R_max'] <= r_cut_high)
 
     # Conditions and choices for np.select (priority order matters!)    
     conditions = [
-                    has_no_s1,                                  # 1. Highest priority: nS1=0 is Anode.
-                    crosses_anode_z,                            # 2. If any part is in anode Z, it's Anode.
-                    crosses_cathode_z,                          # 3. If any part is in cathode Z, it's Cathode.
-                    is_fully_z_contained & is_r_contained,      # 4. If contained in Z and R, it's Fiducial.
-                    is_fully_z_contained & ~is_r_contained      # 5. If contained in Z but not R, it's Tube.
+                    crosses_anode_z,                            # 1. If any part is in anode Z, it's Anode.
+                    crosses_cathode_z,                          # 2. If any part is in cathode Z, it's Cathode.
+                    is_fully_z_contained & is_r_contained,      # 3. If contained in Z and R, it's Fiducial.
+                    is_fully_z_contained & ~is_r_contained      # 4. If contained in Z but not R, it's Tube.
                  ]
-    choices = ['anode', 'anode', 'cathode', 'fiducial', 'tube']
+    choices = ['anode', 'cathode', 'fiducial', 'tube']
 
-    # Apply classification
-    region_tags = np.select(conditions, choices, default='unclassified')
+    # Map event-level classification back to peak-level DataFrame
+    event_summary['region'] = np.select(conditions, choices, default='unclassified')
+    event_to_particle_map = event_summary['region']
 
-    # Return a pandas Series with the specified event column as the index for easy mapping
-    return pd.Series(region_tags, index=df_event[event_col])
+    df_peak_level['region'] = df_peak_level['event'].map(event_to_particle_map)
+    
+    return df_peak_level
