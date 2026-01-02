@@ -16,9 +16,9 @@ Usage:
     python process_run.py <run_number> <ldc_number> <n_files>
 """
 
-# ============================================================================
+# ===================
 # ----- IMPORTS -----
-# ============================================================================
+# ===================
 
 import sys
 sys.path.append('/lhome/ific/c/ccortesp/Analysis')
@@ -45,15 +45,21 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.exceptions import NotFittedError
 from typing import List, Callable, Tuple
 
-# =============================================================================
+# ===============================================
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
-# =============================================================================
+# ===============================================
+
+# --------------------------------------------
+# 1. DIRECTORIES, PATHS, KEYS AND FILENAMES
+# --------------------------------------------
+# OUTPUT FILENAME TAG
+VERSION_TAG = 'Th_v0'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Th_runs/'
 OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Th_analysis/h5/'
 
-SUMMARY_FILENAME = "summary_Th_processing.csv"      # Choose your name
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '.csv'      # Choose your name
 SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/txt/', SUMMARY_FILENAME)
 
 MAP3D_FILENAME = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/combined_15546_15557.map3d'
@@ -64,23 +70,34 @@ DORO_KEY = 'DST/Events'
 SOPH_KEY = 'RECO/Events'
 
 # COLUMNS TO USE
-DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1h', 'S1e', 'S2e', 'DT', 'X', 'Y', 'Z']        # REVISAR SI SE PUEDEN REDUCIR MAS
+DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1h', 'S1e', 'S2e', 'DT', 'X', 'Y', 'Z']
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
+FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Q', 'E_hit_pe']
 
 # CUTFLOW
-CUT_NAMES = ['IC', 'Cleaning', 'One_S1', 'One_S2', 'Electron_like', 'Processed']
+CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
 
-# ANALYSIS PARAMETERS
+
+# ------------------------
+# 2. PROCESSING PARAMETERS
+# ------------------------
 # --- Drift Velocity --- #
-V_DRIFT = 0.865     # in [mm/μs]
+V_DRIFT = 0.865     # Drift velocity in [mm/μs]
 
-# --- Electron-like Events --- #
-# Filtered using: S1e < m * DT + b
-M_ELEC = 0.32
-B_ELEC = 500
+# --- S1 Signal Cuts ---
+# Po-like events are filtered using: S1h >= m * S1e + b
+M_NOPOLIKE = 0.17
+B_NOPOLIKE = -56
 
-# --- Isolated/non-isolated Hits --- #
-CLUSTER_CONFIG = {"distance": [16., 16., 4.], "nhit": 3}
+# --- S1e Correction ---
+DT_STOP = 1372.2543          # Cathode temporal position in [μs]
+CV_FIT  = [0.57, 796.53]     # Fit values for S1e correction vs DT
+
+# --- Spurious Hits ---
+# Minimum neighbors hits to define a valid cluster
+N_HITS = 5
+# Clusterizer configuration
+CLUSTER_CONFIG = {"distance": [16., 16., 4.], "nhit": N_HITS}
 
 def parse_arguments():
     """
@@ -195,15 +212,7 @@ def R_max_func(group_df):
 
 def process_file(filepath, cut_names):
     """
-    Processes a single HDF5 file and returns its cutflow counts.
-
-    Args:
-        filepath (str): The full path to the input .h5 file.
-        cut_names (list): The list of cut names to track.
-    
-    Returns:
-        dict: A dictionary with event counts for each cut for this file.
-              Returns a dictionary of zeros if processing fails.
+    DESCRIPCIÓN.
     """
     filename = os.path.basename(filepath)
     print(f"→ Processing file: {filename}")

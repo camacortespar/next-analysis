@@ -1,0 +1,13 @@
+For period 2 with condition 'castle_closed':
+  Corrected Time = 697798.6254801187 s
+Dataframe merged:
+  Total processed events: 197775
+
+--------------------------------------------------
+
+For period 2 with condition 'castle_closed_RAS':
+  Corrected Time = 3485614.533823055 s
+Dataframe merged:
+  Total processed events: 939944
+
+--------------------------------------------------

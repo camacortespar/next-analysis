@@ -115,3 +115,41 @@ Fiducial = 162683 events (35.66%)
 Tube     = 211670 events (46.39%)
 Cathode  = 60807 events (13.33%)
 Anode    = 21109 events (4.63%)
+
+=================================================================
+Date: 17/12/2025
+=================================================================
+----- CATHODE:
+--- Processing Summary ---
+Total generated events                = 385000 (100.00%)
+Total events after reco chain         = 276443 (71.80%)
+Total events with strong S2           = 276443 (100.00%)
+Total events after positive E cut     = 276443 (100.00%)
+Total events after nS1 cut            = 275793 (99.76%)
+    - of which nS1 = 0 ¬ 37645 (13.62%)
+    - of which nS1 = 1 ¬ 238148 (86.15%)
+
+Y ya, eso es todo, eso es todo ♥
+
+----- ALL:
+--- Processing Summary ---
+Total generated events                = 2918945850 (100.00%)
+Total events after reco chain         = 941017 (0.03%)
+Total events with strong S2           = 941017 (100.00%)
+Total events after positive E cut     = 941017 (100.00%)
+Total events after nS1 cut            = 938281 (99.71%)
+    - of which nS1 = 0 ¬ 30629 (3.25%)
+    - of which nS1 = 1 ¬ 907652 (96.45%)
+
+Y ya, eso es todo, eso es todo ♥
+
+----- ANALYSIS:
+All MC [Energy ≥ 0.5 MeV]: 672414 events (71.66%)
+Cathode MC [Energy ≥ 0.5 MeV]: 178023 events (64.55%)
+All MC: 250 inclusive events in ROI
+Cathode MC: 398 inclusive events in ROI
+
+All MC - Fiducial: 162683 events (24.19%)
+Cathode MC - Fiducial: 98 events (0.06%)
+All MC: 23 fiducial events in ROI
+Cathode MC: 0 fiducial events in ROI

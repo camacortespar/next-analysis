@@ -68,7 +68,7 @@ from typing import List, Callable, Tuple
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
 # Example tags: 'other', 'p2_nhit5', 'nhit5_Qthres7' (this is basically p1_nhit5)
-VERSION_TAG = 'rescale_p1'
+VERSION_TAG = 'rescale_p1_ras_off'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
@@ -77,7 +77,7 @@ OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgr
 
 RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
 
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_process.csv'     # Choose your name
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG +'.csv'     # Choose your name
 SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/', SUMMARY_FILENAME)
 
 # KEYS
@@ -91,7 +91,7 @@ SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
 FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Q', 'E_hit_pe']
 
 # CUTFLOWS
-CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
+CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Hits']
 
 # ------------------------
 # 2. PROCESSING PARAMETERS
@@ -107,21 +107,22 @@ B_NOPOLIKE = -56
 DT_STOP = 1372.2543          # Cathode temporal position in [μs]
 CV_FIT  = [0.57, 796.53]     # Fit values for S1e correction vs DT
 
-# # --- Alpha/Electron Separation Cut ---
-# # Events with total corrected energy above this threshold are classified as alphas.
-# ENERGY_THRESHOLD = 7.5e5       # in [PE]
+# --- Alpha/Electron Separation Cut ---
+# Events with total corrected energy above this threshold are classified as alphas.
+ENERGY_THRESHOLD = 7.5e5       # in [PE]
 
 # --- Spurious Hits ---
 # Minimum neighbors hits to define a valid cluster
 N_HITS = 5
-# Minimum Q charge to activate a SiPM (P1 = 7 pe, P2 = 5 pe).
-Q_THRESHOLD = 5        # in [pe]
-# Clusterizer configuration
 CLUSTER_CONFIG = {"distance": [16., 16., 4.], "nhit": N_HITS}
+# Minimum Q charge to activate a SiPM (P1 = 7 pe, P2 = 5 pe).
+Q_THRESHOLD = 7        # in [pe]
+NO_hits_under_Q = crudo.drop_hits_under_Q_threshold(Q_threshold = Q_THRESHOLD, variables = ['E_corr'])
 
-# # --- Alpha Hit Cleaning Cut ---
-# # In the alpha population, hits with charge below this value are removed.
-# Q_LIM_ALPHA = 100      # in [pe]
+
+# --- Alpha Hit Cleaning Cut ---
+# In the alpha population, hits with charge below this value are removed.
+Q_LIM_ALPHA = 100      # in [pe]
 
 def parse_arguments():
     """
@@ -190,10 +191,19 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         df_doro = crudo.correct_S1e(df_doro, CV_FIT, DT_STOP, output_column='S1e_corr')     # Based on alpha analysis
 
         # ----- Deal with Spurious Hits ----- #
+
+        # Now deal with spurious hits
         df_clean_hits = bf.deal_spurious_hits(df_soph, cluster_config=CLUSTER_CONFIG)
         non_isolated_ids = df_clean_hits['event'].unique()
         df_doro, df_soph = bf.apply_cut_and_update(df_doro, df_soph, event_ids=non_isolated_ids)
         local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
+
+        # ESPECIAL AQUÍ POR CORTE DE Q
+        print("Applying Q threshold to hits:")
+        print(f"  ({df_soph['event'].nunique()} events, {len(df_soph)} hits) with Qmin = {df_soph['Q'].min()} PE.")
+        df_temp = df_soph.groupby(['event', 'npeak'], group_keys=False).apply(NO_hits_under_Q)
+        df_soph = df_temp.reset_index(drop=True)
+        print(f"  ({df_soph['event'].nunique()} events, {len(df_soph)} hits) with Qmin = {df_soph['Q'].min()} PE.")
         
         # ----- Data @ Event/Peak-Level ----- #
         # First, store original event size in Dorothea dataframe
