@@ -40,7 +40,7 @@ def auto_plot_style(overrides = dict()):
 
 def ccortesp_plot_style(overrides = dict()):
     plt.rcParams[ "figure.figsize"              ] = 10, 8
-    plt.rcParams[ "font.size"                   ] = 15
+    plt.rcParams[ "font.size"                   ] = 25
     plt.rcParams[ "axes.formatter.use_mathtext" ] = True
     plt.rcParams[ "axes.formatter.limits"       ] = (-3 ,4)
     plt.rcParams[ "xtick.major.size"            ] = 10
