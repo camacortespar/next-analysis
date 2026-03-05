@@ -1,4 +1,7 @@
+# Crudo: A library for data management, analysis, and energy corrections in the NEXT-100 experiment.
+
 from   datetime import datetime
+import h5py
 import locale
 import numpy  as np
 import os
@@ -15,6 +18,18 @@ from typing import List, Callable
 ###############################
 # ----- Data Management ----- #
 ###############################
+
+def h5_describer(file_path):
+
+    # Function to visualize the structure of an HDF5 file
+    def print_structure(name, obj):
+        indent = '  ' * (name.count('/'))
+        print(f"{indent}{name} ({type(obj).__name__})")
+        if isinstance(obj, h5py.Dataset):
+            print(f"{indent}  Shape: {obj.shape}, Dtype: {obj.dtype}")
+
+    with h5py.File(file_path, 'r') as f:
+        f.visititems(print_structure)
 
 
 def load_run_data(  
