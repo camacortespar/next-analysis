@@ -295,7 +295,7 @@ def prefit_1D(x_data, bins):
             
     return np.array(x_centers), np.array(x_errors), np.array(y_counts), np.array(y_errors)
 
-def prefit_2D(x_data, y_data, bins):
+def prefit_2D(x_data, y_data, bins, stat='mean'):
     """
     Create a profile from 2D data, calculating the mean of y for each bin of x.
 
@@ -318,7 +318,7 @@ def prefit_2D(x_data, y_data, bins):
         bin_edges = bins
 
     x_centers = [];     x_errors = []
-    y_means = [];       y_errors = []
+    y_centers = [];       y_errors = []
 
     for i in range(len(bin_edges) - 1):
         low_edge, high_edge = bin_edges[i], bin_edges[i + 1]
@@ -335,15 +335,22 @@ def prefit_2D(x_data, y_data, bins):
         x_centers.append((low_edge + high_edge) / 2)
         x_errors.append((high_edge - low_edge) / 2)
 
-        # Calculate mean and its error
-        mean = np.mean(y_in_bin)
-        std_dev = np.std(y_in_bin, ddof=1)      # ddof=1 for sample standard deviation
-        error = std_dev / np.sqrt(len(y_in_bin)) if len(y_in_bin) > 1 else 0
+        if stat == 'mean':
+            # Calculate mean and its error
+            y_cv = np.mean(y_in_bin)
+            std_dev = np.std(y_in_bin, ddof=1)      # ddof=1 for sample standard deviation
+            y_error = std_dev / np.sqrt(len(y_in_bin)) if len(y_in_bin) > 1 else 0
 
-        y_means.append(mean)
-        y_errors.append(error)
+        elif stat == 'median':
+            # Calculate median and its error
+            y_cv = np.median(y_in_bin)
+            std_dev = np.std(y_in_bin, ddof=1)
+            y_error = 1.253 * std_dev / np.sqrt(len(y_in_bin)) if len(y_in_bin) > 1 else 0
 
-    return np.array(x_centers), np.array(x_errors), np.array(y_means), np.array(y_errors)
+        y_centers.append(y_cv)
+        y_errors.append(y_error)
+
+    return np.array(x_centers), np.array(x_errors), np.array(y_centers), np.array(y_errors)
 
 #############################
 # ----- Fit Functions ----- #
