@@ -96,16 +96,10 @@ def correct_S2e_map(
     Returns:
         pd.DataFrame: DataFrame with a new column 'S2e_corr' containing corrected S2 energy.
     """
-    # if len(df) != len(mask):
-    #     raise ValueError(f"Length mismatch: DataFrame has {len(df)} rows, but mask has {len(mask)}.")
-    # # Ensure mask is boolean!
-    # assert mask.dtype == bool, "Mask must be a boolean Series!"
-
-    
-
     # Extract relevant columns
     X, Y, DT, E2 = df['X'], df['Y'], df['DT'], df[input_column]
 
+    # Mask
     mask = (DT < DT_cath)
 
     # Generate normalized energy map

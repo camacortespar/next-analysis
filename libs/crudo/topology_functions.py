@@ -6,8 +6,6 @@ from sklearn.neighbors import NearestNeighbors
 from typing import Callable
 
 
-
-
 def cathode_position(
                         run_info,
                         run_data,
@@ -79,11 +77,6 @@ def cathode_position(
     return DT_stop
 
 
-
-
-
-
-
 def drop_isolated_clusters_2D(
                                 distance=[15., 15.],
                                 nhit=3,
@@ -129,6 +122,7 @@ def drop_isolated_clusters_2D(
         return pass_df #, isol_df
 
     return drop_event
+
 
 def drop_isolated_clusters_3D(
                                 distance=[16., 16., 4.],
@@ -187,6 +181,7 @@ def drop_isolated_clusters_3D(
         return pass_df
 
     return drop_event
+
 
 def drop_hits_under_Q_threshold(
                                     Q_threshold=7,

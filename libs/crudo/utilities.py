@@ -1,5 +1,5 @@
 #
-# Utilities: Unclassified helpful tools/functions.
+# Utilities: Unclassified but helpful tools/functions.
 #
 
 import locale
