@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-This script is designed to process calibration runs for the NEXT experiment, specifically for 238Th data. 
+This script is designed to process calibration runs for the NEXT experiment, specifically 238Th data. 
 It automates the workflow of reading raw HDF5 files, applying processing steps, and saving the processed data into new HDF5 files.
 
 This script performs the following high-level steps:
@@ -24,9 +24,6 @@ import sys
 sys.path.append('/lhome/ific/c/ccortesp/Analysis')
 
 from libs import crudo
-from libs import fit_functions as ff
-from libs import plotting_tools as pt
-from libs import bckg_functions as bf
 
 import argparse
 import csv
@@ -50,21 +47,21 @@ from typing import List, Callable, Tuple
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
 # ===============================================
 
-# --------------------------------------------
-# 1. DIRECTORIES, PATHS, KEYS AND FILENAMES
-# --------------------------------------------
+# ---------------------------------------
+# 1. DIRECTORIES, PATHS, FILENAMES & KEYS
+# ---------------------------------------
 # OUTPUT FILENAME TAG
-VERSION_TAG = 'Th_v0'
+VERSION_TAG = 'Th_zemrude'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Th_runs/'
 OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Th_analysis/h5/'
-
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '.csv'      # Choose your name
+# Kr files: using Zemrude results
+MAP3D_FILENAME = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/combined_15546_15557_zemrude_map.h5'
+TIME_FILENAME  = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/energy_scale_15589_15589_he.h5'
+# Summary file
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '.csv'    # Choose your name
 SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/txt/', SUMMARY_FILENAME)
-
-MAP3D_FILENAME = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/combined_15546_15557.map3d'
-TIME_FILENAME  = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/energy_scale_he.h5'
 
 # KEYS
 DORO_KEY = 'DST/Events'
@@ -77,7 +74,6 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Q', 'E_hit
 
 # CUTFLOW
 CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
-
 
 # ------------------------
 # 2. PROCESSING PARAMETERS
