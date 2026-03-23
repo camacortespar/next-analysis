@@ -1,6 +1,6 @@
-# - - - - - - - -
+#
 # Data Management: A library for managing HDF5 data and simulation files.
-# - - - - - - - - 
+#
 
 from datetime import datetime
 import h5py

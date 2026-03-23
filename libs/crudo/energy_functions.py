@@ -1,9 +1,10 @@
+#
+# Energy Functions: All the tools related to energy quantities in NEXT that you might need.
+#
+from . import plotting_tools     as pt
 
-
-
-##################################
-# ----- Energy Corrections ----- #
-##################################
+import numpy as np
+import pandas as pd
 
 
 def correct_S1e(
@@ -79,7 +80,7 @@ def correct_S2e_LT(
 
 def correct_S2e_map(
                         df, 
-                        mask, 
+                        DT_cath, 
                         xy_bins=50, 
                         input_column='S2e_corr_LT'
                     ):
@@ -95,18 +96,35 @@ def correct_S2e_map(
     Returns:
         pd.DataFrame: DataFrame with a new column 'S2e_corr' containing corrected S2 energy.
     """
+    # if len(df) != len(mask):
+    #     raise ValueError(f"Length mismatch: DataFrame has {len(df)} rows, but mask has {len(mask)}.")
+    # # Ensure mask is boolean!
+    # assert mask.dtype == bool, "Mask must be a boolean Series!"
+
+    
+
     # Extract relevant columns
-    X, Y, E2 = df['X'], df['Y'], df[input_column]
+    X, Y, DT, E2 = df['X'], df['Y'], df['DT'], df[input_column]
+
+    mask = (DT < DT_cath)
 
     # Generate normalized energy map
     energy_map, x_edges, y_edges = pt.mapping(X[mask], Y[mask], wei=E2[mask], xy_bins=xy_bins, norm=True)
 
-    # Assign bin indices for each event
-    df['x_bin'] = np.digitize(X, x_edges) - 1  # 0-based indexing
-    df['y_bin'] = np.digitize(Y, y_edges) - 1
+    # Map events to reference bins, ensuring valid indices
+    df['x_bin'] = np.clip(np.digitize(X, x_edges) - 1, 0, len(x_edges) - 2)
+    df['y_bin'] = np.clip(np.digitize(Y, y_edges) - 1, 0, len(y_edges) - 2)
 
-    # Assign normalization factors and apply correction
+    # # Assign bin indices for each event
+    # df['x_bin'] = np.digitize(X, x_edges) - 1  # 0-based indexing
+    # df['y_bin'] = np.digitize(Y, y_edges) - 1
+
+    # Normalization factors
     df['S2e_norm_factor'] = energy_map[df['x_bin'], df['y_bin']]
+    # Handle bins with no data in the reference map
+    df['S2e_norm_factor'] = np.where(df['S2e_norm_factor'] == 0, 1, df['S2e_norm_factor'])
+
+    # Apply energy correction
     df['S2e_corr'] = E2 / df['S2e_norm_factor']
 
     return df

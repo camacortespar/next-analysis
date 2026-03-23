@@ -1,9 +1,9 @@
+#
+# Utilities: Unclassified helpful tools/functions.
+#
 
-
-
-###########################
-# ----- Extra Tools ----- #
-###########################
+import locale
+from datetime import datetime
 
 
 def epoch_converter(epoch_time, h=False):
@@ -18,14 +18,14 @@ def epoch_converter(epoch_time, h=False):
         str: The formatted date string.
     """
     # Set locale to Spanish
-    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')           #adjust to your system locale if needed
+    locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')           # Adjust to your system locale if needed
     # Convert epoch time to a datetime object
     dt_object = datetime.fromtimestamp(epoch_time)
     # Use different formats based on the value of h
     if h:
         # formatted_date = dt_object.strftime('%H:%M')
-        formatted_date = dt_object.strftime('%d/%m - %H:%M')  #day/month - hour:minute
+        formatted_date = dt_object.strftime('%d/%m - %H:%M')  # day/month - hour:minute
     else:
-        formatted_date = dt_object.strftime('%d/%m')          #day/month
+        formatted_date = dt_object.strftime('%d/%m')          # day/month
     
     return formatted_date
