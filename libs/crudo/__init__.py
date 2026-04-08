@@ -20,4 +20,4 @@ from . import plotting_tools     as pt
 from . import topology_functions as tf
 from . import utilities          as ut
 
-print("Crudo package loaded successfully.\nAvailable sub-modules: data_management (dm), energy_functions (ef), fit_functions (ff), plotting_tools (pt), topology_functions (tf), utilities (ut).")
+# print("Crudo package loaded successfully.\nAvailable sub-modules: data_management (dm), energy_functions (ef), fit_functions (ff), plotting_tools (pt), topology_functions (tf), utilities (ut).")

@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-This script performs the pre-analysis workflow for low background data (trigger 2).
+This script performs the pre-analysis workflow for low-background data (trigger 2).
 The process involves:
 
 - Loading of reconstructed data.
-- Correction of energy using Kr maps and HE scale-
+- Correction of energy using Kr maps and HE scale.
 - Data cleaning to mitigate artifacts or anomalies arising from the NEXT reconstruction process.
 - Application of cuts on S1 and S2 signals. 
 - Differentiation and isolation of alpha and electron populations.
@@ -24,7 +24,7 @@ with the following high-level steps:
     4. Output Generation: Saves the processed data into new .h5 files in the specified output directory.
 
 Usage:
-    python process_run.py <run_number>
+    python process_low_bckg_data.py <run_number>
 """
 
 # ============================================================================
@@ -34,17 +34,15 @@ Usage:
 import sys
 sys.path.append('/lhome/ific/c/ccortesp/Analysis/')
 
-from libs import bckg_functions as bf
 from libs import crudo
-from libs import fit_functions as ff
-from libs import plotting_tools as pt
 
 import argparse
 import csv
 import glob
-from invisible_cities.reco.corrections import read_maps, apply_all_correction
-from invisible_cities.types.symbols import NormStrategy
 from invisible_cities.core.core_functions import in_range
+from invisible_cities.reco.corrections import read_maps, apply_all_correction
+from invisible_cities.types.symbols import NormMethod
+from invisible_cities.types.symbols import NormStrategy
 from joblib import Parallel, delayed 
 import numpy as np
 import os
@@ -68,27 +66,27 @@ from typing import List, Callable, Tuple
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
 # Example tags: 'other', 'p2_nhit5', 'nhit5_Qthres7' (this is basically p1_nhit5)
-VERSION_TAG = 'rescale_p1'
+VERSION_TAG = 'p2_zemrude'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
-ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/'
+ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/2025/'
 OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
 
 RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
 
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_process.csv'     # Choose your name
-SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/', SUMMARY_FILENAME)
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'     # Choose your name
+SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/', SUMMARY_FILENAME)
 
 # KEYS
 DORO_KEY = 'DST/Events'
 SOPH_KEY = 'RECO/Events'
-EVT_KEY  = 'PROCESSED/Events'
+KR_KEY = 'krmap/krmap'
 
 # COLUMNS TO USE
-DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1h', 'S1e', 'S2e', 'DT', 'X', 'Y', 'Z']
+DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1w', 'S1h', 'S1e', 'S1t', 'S2w', 'S2h', 'S2e', 'S2q', 'S2t', 'DT', 'X', 'Y', 'Z']
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
-FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Q', 'E_hit_pe']
+FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'E_hit_pe', 'cluster']
 
 # CUTFLOWS
 CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
@@ -104,24 +102,12 @@ M_NOPOLIKE = 0.17
 B_NOPOLIKE = -56
 
 # --- S1e Correction ---
-DT_STOP = 1372.2543          # Cathode temporal position in [μs]
-CV_FIT  = [0.57, 796.53]     # Fit values for S1e correction vs DT
+DT_CATH = 1350              # Cathode temporal position in [μs]
+CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
-# # --- Alpha/Electron Separation Cut ---
-# # Events with total corrected energy above this threshold are classified as alphas.
-# ENERGY_THRESHOLD = 7.5e5       # in [PE]
-
-# --- Spurious Hits ---
-# Minimum neighbors hits to define a valid cluster
-N_HITS = 5
-# Minimum Q charge to activate a SiPM (P1 = 7 pe, P2 = 5 pe).
-Q_THRESHOLD = 5        # in [pe]
-# Clusterizer configuration
-CLUSTER_CONFIG = {"distance": [16., 16., 4.], "nhit": N_HITS}
-
-# # --- Alpha Hit Cleaning Cut ---
-# # In the alpha population, hits with charge below this value are removed.
-# Q_LIM_ALPHA = 100      # in [pe]
+# --- Hits Clusterizer ---
+CLUSTERING_PARAMS = dict(eps = 3, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
+CLUSTER_FUNCTION = crudo.tf.hits_clusterizer(CLUSTERING_PARAMS)
 
 def parse_arguments():
     """
@@ -167,6 +153,7 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         # ----- Load Dorothea & Sophronia ----- #
         df_doro = pd.read_hdf(filepath, key=DORO_KEY).loc[:, DORO_COLUMNS]      # Keep only relevant columns
         df_soph = pd.read_hdf(filepath, key=SOPH_KEY).loc[:, SOPH_COLUMNS]      # Keep only relevant columns
+        # Compute Z in [mm]
         df_soph.rename(columns={'Z': 'DT'}, inplace=True)                       # Rename Z to DT for consistency
         df_soph['Z'] = df_soph['DT'] * V_DRIFT                                  # Compute real Z position: using the drift velocity
         reco_ids = df_soph['event'].unique()
@@ -175,34 +162,35 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         # ----- Removing Z <= 0 ----- #
         events_with_negative_z_hits = df_soph.loc[df_soph['Z'] < 0, 'event'].unique()
         events_with_positive_z_hits = np.setdiff1d(reco_ids, events_with_negative_z_hits)
-        df_doro, df_soph = bf.apply_cut_and_update(df_doro, df_soph, event_ids=events_with_positive_z_hits)
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=events_with_positive_z_hits)
         local_evt_counter[cut_names[1]] = df_soph['event'].nunique()
 
         # ----- Energy Correction ----- #
-        df_soph = bf.correct_energy_by_map(df_soph, read_maps(kr_path))
+        df_soph = crudo.ef.correct_energy_by_kr_map(df_soph, kr_path, norm_method=NormMethod.median_anode)
 
         # ----- S1e Cut & Correction ----- #
         # nS1 <= 1 (NO-Polike)
         s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
-        df_doro, df_soph = bf.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
         local_evt_counter[cut_names[2]] = df_soph['event'].nunique()
         # S1e Correction
-        df_doro = crudo.correct_S1e(df_doro, CV_FIT, DT_STOP, output_column='S1e_corr')     # Based on alpha analysis
+        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
 
         # ----- Deal with Spurious Hits ----- #
-        df_clean_hits = bf.deal_spurious_hits(df_soph, cluster_config=CLUSTER_CONFIG)
-        non_isolated_ids = df_clean_hits['event'].unique()
-        df_doro, df_soph = bf.apply_cut_and_update(df_doro, df_soph, event_ids=non_isolated_ids)
+        df_clust_soph = CLUSTER_FUNCTION(df_soph)    # Applying hits_clusterizer
+        df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='E_corr_pe')
+        clean_evt_ids = df_clean_soph['event'].unique()
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
         local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
         
         # ----- Data @ Event/Peak-Level ----- #
-        # First, store original event size in Dorothea dataframe
-        original_event_size_df = df_soph.groupby('event').size().rename('n_hits_original').reset_index()
+        # First, store original event size from Sophronia into Dorothea dataframe
+        original_event_size_df = df_soph.groupby('event').size().rename('reco_size').reset_index()
         df_doro = df_doro.merge(original_event_size_df, on='event', how='left')
         # Now, store just the relevant columns in final Sophronia dataframe
-        df_soph_final = df_clean_hits.loc[:, FINAL_SOPH_COLUMNS].copy()
+        df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
-        df_event_peak = bf.aggregate_to_event_peak_level(df_doro, df_soph_final)
+        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final)
         
     except Exception as e:
         print(f"   Failed to process file {filename}. Error: {e}", file=sys.stderr)
@@ -238,7 +226,7 @@ def main():
     RUN_LOST = RUNS_INFO_DF.at[args.run_number, 'LOST']
     print(f"Duration: {RUN_DURATION} s, OK: {RUN_OK}, LOST: {RUN_LOST}")
 
-    kr_file = next((f for f in os.listdir(ICAROS_DIR) if f'run_{args.run_number}' in f and f.endswith('.map.h5')), None)
+    kr_file = next((f for f in os.listdir(ICAROS_DIR) if f'run_{args.run_number}' in f and f.endswith('.zemrude.h5')), None)
     if not kr_file:
         raise FileNotFoundError(f"   Error: NO Kr map file found for run {args.run_number} in {ICAROS_DIR}")
         sys.exit(1)
@@ -314,8 +302,9 @@ def main():
         with pd.HDFStore(output_filepath, mode='w') as store:
             if not run_event_df.empty:
                 store.put('Events', run_event_df, format='table', data_columns=True)
-            if not run_sophronia_df.empty:
-                store.put('Hits', run_sophronia_df, format='table', data_columns=True)
+            # DO NOT STORE HIT-LEVEL DATA TO AVOID HUGE FILES. THIS CAN BE RE-ENABLED IF NEEDED, BUT BEWARE OF THE FILE SIZE.
+            # if not run_sophronia_df.empty:
+            #     store.put('Hits', run_sophronia_df, format='table', data_columns=True)
         print("HDF5 saving complete.")
     except Exception as e:
         print(f"   Error writing to HDF5 file: {e}", file=sys.stderr)

@@ -2,8 +2,10 @@
 # Utilities: Unclassified but helpful tools/functions.
 #
 
-import locale
 from datetime import datetime
+import locale
+import numpy as np
+
 
 
 def epoch_converter(epoch_time, h=False):
@@ -29,3 +31,35 @@ def epoch_converter(epoch_time, h=False):
         formatted_date = dt_object.strftime('%d/%m')          # day/month
     
     return formatted_date
+
+
+def smooth(y, n=4):
+    """
+    Smooths a given 1D array by applying a moving average filter.
+
+    This function extends the input array by flipping it on both ends, 
+    applies a moving average convolution, and then extracts the smoothed 
+    values corresponding to the original array length.
+
+    Parameters:
+    y (array-like): The input 1D array to be smoothed.
+    n (int, optional): The window size for the moving average filter. 
+                       Default is 4.
+
+    Returns:
+    numpy.ndarray: The smoothed 1D array with the same length as the input.
+    """
+    m  = len(y)
+    yf = np.flip(y)
+    y  = np.concatenate([yf, y, yf])
+    z  = np.ones(n) / n
+    y  = np.convolve(y, z, mode="same")
+    return y[m:2*m]
+
+def weighted_avg(series, weight):
+    if weight.sum() == 0:   # Avoid division by zero
+        return np.nan
+    return np.average(series, weights=weight)
+
+def R_max_func(group_df):
+    return np.sqrt(group_df['X']**2 + group_df['Y']**2).max()

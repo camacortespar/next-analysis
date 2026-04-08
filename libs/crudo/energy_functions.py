@@ -1,11 +1,19 @@
 #
 # Energy Functions: All the tools related to energy quantities in NEXT that you might need.
 #
-from . import plotting_tools     as pt
+from . import plotting_tools as pt
+from . import utilities      as ut
 
+from invisible_cities.core.core_functions import in_range
+from invisible_cities.reco.corrections import apply_all_correction
+from invisible_cities.types.symbols import NormMethod
+from invisible_cities.types.symbols import NormStrategy
 import numpy as np
 import pandas as pd
+from scipy.interpolate import griddata
+from scipy.interpolate import interp1d
 
+# ----- Custom Functions ----- #
 
 def correct_S1e(
                     df,
@@ -159,4 +167,198 @@ def correct_S2e_map_fixed(
     # Apply energy correction
     df['S2e_corr'] = E2 / df['S2e_norm_factor']
 
+    return df
+
+# ----- Krypton Functions ----- #
+# Custom functions that are not in IC, but Krypton people worked on them
+# Sources: https://github.com/mcidlaso/IC/tree/ICAROS_3D/invisible_cities/icaros
+#          https://gist.github.com/gonzaponte/3dfff1a615af2070aa915c6d315b7bc0
+
+def define_kr_normalization(
+                                krmap     : pd.DataFrame,
+                                method    : NormMethod,
+                                xy_params : dict = None
+                            ) -> float:
+    """
+    Normalizes a krypton map according to a specific method.
+
+    Given a krypton map, adjusts the map values to be normalized 
+    based on the selected normalization method.
+
+    Parameters:
+        krmap : pd.DataFrame
+            Krypton map to be normalized.
+        method : NormMethod
+            Normalization method to use, defined in the NormMethod class.
+        xy_params : dict
+            X and Y limits defining the region for normalization.
+
+    Returns:
+        float: Normalization value calculated based on the selected method.
+    """
+
+    krmap = krmap.dropna(subset=['mu'])
+    anode = krmap[krmap.k == 0]
+
+    if method is NormMethod.maximum:
+        E_reference_max = krmap.mu.max()
+        return E_reference_max
+
+    if method is NormMethod.mean_chamber:
+        E_reference_chamber = krmap.mu.mean()
+        return E_reference_chamber
+
+    if method is NormMethod.median_chamber:
+        E_median_chamber = krmap.mu.median()
+        return E_median_chamber
+
+    if method is NormMethod.mean_anode:
+        E_reference_anode = anode.mu.mean()
+        return E_reference_anode
+
+    if method is NormMethod.median_anode:
+        E_median_anode = anode.mu.median()
+        return E_median_anode
+
+    mask_region = ( in_range(krmap.x, xy_params['x_low'], xy_params['x_high']) &
+                    in_range(krmap.y, xy_params['y_low'], xy_params['y_high'])
+                   ).values
+
+    krmap = krmap[mask_region]
+
+    if method is NormMethod.mean_region_chamber:
+        E_reference_region = krmap.mu.mean()
+        return E_reference_region
+
+    if method is NormMethod.median_region_chamber:
+        E_median_region = krmap.mu.median()
+        return E_median_region
+
+    anode = krmap[krmap.k == 0]
+
+    if method is NormMethod.mean_region_anode:
+        E_reference_slice_anode = anode.mu.mean()
+        return E_reference_slice_anode
+
+    if method is NormMethod.median_region_anode:
+        E_median_region_anode = anode.mu.median()
+        return E_median_region_anode
+
+def get_corr3d(
+                    kr_fname    : str,
+                    norm_method : NormMethod,
+                    xy_params   : dict = None
+                ):
+    """
+    Generates a 3D correction function for energy calibration using a krypton map.
+
+    Parameters:
+        kr_fname (str): Path to the krypton map file (HDF5 format).
+        norm_method (NormMethod): Normalization method to be used for the krypton map.
+        xy_params (dict): Optional parameters defining the XY region for normalization.
+
+    Returns:
+        function: A correction function that takes drift time (dt), x, and y as inputs.
+    """
+    krmap = pd.read_hdf(kr_fname, key='krmap/krmap')    # krmap/krmap
+    krmap = krmap.loc[~krmap['mu'].isna()]
+    krmap = krmap.loc[krmap['mu'] > 0]
+    dtxy_map = krmap.loc[:, ['dt', 'x', 'y']].values
+    norm = define_kr_normalization(krmap, norm_method, xy_params)
+    
+    def corr(dt, x, y):
+        dtxy_input = np.stack([dt, x, y], axis=1)
+        e_data = griddata(dtxy_map, krmap['mu'].values, dtxy_input, method='nearest')
+        return norm / e_data
+
+    return corr
+
+
+def get_corrt(kr_fname, variable='s2e', n=4):
+    """
+    Creates a time-dependent correction function from the krypton map's time evolution.
+
+    Parameters:
+        kr_fname (str): Path to the krypton map file.
+        variable (str): Variable for time correction. Default is 's2e'.
+        n (int): Smoothing parameter. Default is 4.
+
+    Returns:
+        function: Interpolation function for time correction.
+    """
+    time_data = pd.read_hdf(kr_fname, key="t_evol/t_evol")
+
+    smoothed = ut.smooth(time_data[variable], n)
+    corr = smoothed.min() / smoothed
+
+    time_correction = interp1d(time_data['ts'], corr, kind="cubic", bounds_error=False, fill_value=(corr[0], corr[-1]))
+
+    return time_correction
+
+def correct_energy_by_kr_map(
+                                df         : pd.DataFrame,
+                                kr_fname   : str,
+                                norm_method: NormMethod
+                            ) -> pd.DataFrame:
+    """
+    Applies energy correction using a krypton map and time evolution correction.
+
+    This function uses a krypton map to apply spatial energy corrections based on 
+    drift time (DT), X, and Y coordinates. Additionally, it applies a time-dependent 
+    correction to account for temporal variations in energy calibration.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data to be corrected. 
+                           Must include columns 'E', 'DT', 'X', 'Y', and 'time'.
+        kr_fname (str): Path to the krypton map file (HDF5 format).
+        norm_method (NormMethod): Normalization method to be used for the krypton map.
+
+    Returns:
+        pd.DataFrame: DataFrame with a new column 'E_corr_pe' containing the corrected energy.
+    """
+    # Get 3D spatial correction function
+    corr3d_func = get_corr3d(kr_fname, norm_method=norm_method)
+    # # Get time-dependent correction function
+    # corrt_func = get_corrt(kr_fname)
+
+    # Apply corrections
+    # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
+    df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
+
+    # Replace NaN or negative corrected energy with 0
+    df['E_corr_pe'] = np.where(pd.notna(df['E_corr_pe']) & (df['E_corr_pe'] > 0), df['E_corr_pe'], 0)
+
+    return df
+
+
+# def correct_energy_by_map(df: pd.DataFrame, cmap) -> pd.DataFrame:
+#     """
+#     Applies energy correction from Kr map and cleans negative/NaN values.
+
+#     NOTE:   This function is outdated and should not be used in production.
+#             It uses a previous version of Kr map correction (Icaros). 
+#             It is kept here for reference purposes only.
+#     """
+#     corr_func = apply_all_correction(cmap, apply_temp=True, norm_strat=NormStrategy.max)
+#     x_vals, y_vals, z_vals, t_vals = df.X.values, df.Y.values, df.Z.values, df.time.values
+    
+#     df['corr_factor'] = corr_func(x_vals, y_vals, z_vals, t_vals)
+#     df['E_corr'] = df['E'] * df['corr_factor']
+    
+#     # NaN or negative energy to 0: hit-level
+#     df['E_corr'] = np.where(pd.notna(df['E_corr']) & (df['E_corr'] > 0), df['E_corr'], 0)
+    
+#     return df
+
+# ----- High Energy Functions ----- #
+def energy_pe_to_mev(  df: pd.DataFrame
+                     , slope: float
+                     , intercept: float
+                     , input_column:  str = 'E_evt_pe'
+                     , output_column: str = 'E_evt_mev' ) -> pd.DataFrame:
+    """
+    Converts energy from photoelectrons (pe) to mega-electronvolts (MeV).
+    Use a linear model conversion (for example, HE energy scale).
+    """
+    df[output_column] = slope * df[input_column] + intercept
     return df

@@ -2,11 +2,14 @@
 # Data Management: A library for managing HDF5 data and simulation files.
 #
 
+from . import utilities      as ut
+
 from datetime import datetime
 import h5py
+import numpy as np
 import os
 import pandas as pd
-from typing import Callable
+from typing import Callable, List, Optional, Tuple, Union
 
 
 def h5_describer(file_path):
@@ -58,6 +61,7 @@ def load_run_data(
     # Search for HDF5 files across LDCs (1 to 7)
     for ldc in range(1, 8):
         file_name = os.path.join(base_path, f"run_{run_id}_ldc{ldc}{'_trg2' if trigger == 2 else ''}_{city}.h5")
+        # print(f"Checking for file: {file_name}")
         if os.path.isfile(file_name):
             h5_files.append(file_name)
         elif verbose:
@@ -222,3 +226,362 @@ def save_dataframes(
         elif isinstance(structure, dict):
             # Recursively process nested dictionaries
             save_dataframes(structure, output_path, key)
+
+def apply_cut_and_update(
+                            df_doro: pd.DataFrame,
+                            df_soph: pd.DataFrame,
+                            event_ids: Optional[Union[List[int], np.ndarray]] = None,
+                            cut_mask: Optional[pd.Series] = None, 
+                            df_for_mask: Optional[pd.DataFrame] = None
+                        ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Selects events from Dorothea and Sophronia DataFrames based on a cut.
+
+        This function provides two ways to select events:
+        1. By providing a boolean mask (`cut_mask`) applied to a specified DataFrame (`df_for_mask`).
+        2. By providing a direct list/array of event IDs to keep (`event_ids`).
+        
+        The function ensures that both Dorothea and Sophronia are filtered consistently
+        to keep the same set of events.
+
+        Args:
+            df_doro (pd.DataFrame): The Dorothea DataFrame.
+            df_soph (pd.DataFrame): The Sophronia DataFrame.
+            event_ids (list or np.array, optional): An explicit list of event IDs to keep.
+            cut_mask (pd.Series, optional): A boolean mask. Rows where the mask is True
+                                            will be used to identify events to keep.
+                                            Must be provided along with `df_for_mask`.
+            df_for_mask (pd.DataFrame, optional): The DataFrame to which the `cut_mask`
+                                                  should be applied. Required if `cut_mask` is used.
+
+        Returns:
+            tuple[pd.DataFrame, pd.DataFrame]: A tuple containing the updated (filtered)
+                                               Dorothea and Sophronia DataFrames.
+
+        Notes:
+            - This function can be used with any pair of dataframes that share an 'event' column,
+              as long as the appropriate mask or event IDs are provided. Not limited to Dorothea and Sophronia.
+        """
+        if event_ids is None and cut_mask is None:
+            raise ValueError("Either `event_ids` or `cut_mask` must be provided.")
+        if event_ids is not None and cut_mask is not None:
+            raise ValueError("Provide either `event_ids` or `cut_mask`, not both.")
+        if cut_mask is not None and df_for_mask is None:
+            raise ValueError("`df_for_mask` must be provided when using `cut_mask`.")
+        
+        # Determine final event IDs to keep
+        final_ids_to_keep = None
+        if event_ids is not None:
+            final_ids_to_keep = event_ids
+        elif cut_mask is not None:
+            final_ids_to_keep = df_for_mask.loc[cut_mask, 'event'].unique()
+        
+        df_doro_updated = df_doro[df_doro['event'].isin(final_ids_to_keep)].copy()
+        df_soph_updated = df_soph[df_soph['event'].isin(final_ids_to_keep)].copy()
+
+        return df_doro_updated, df_soph_updated
+
+
+# Aggregated data management functions for loading, filtering, merging, and saving data
+
+def get_primary_pulse_info(df_doro: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregates Dorothea data to the event level.
+
+    For each event, it calculates:
+    - General event information (time, nS1, nS2).
+    - Properties of the S1 pulse with the maximum energy ('S1e').
+    - Properties of the S2 pulse with the maximum energy ('S2e').
+
+    Args:
+        df_doro (pd.DataFrame): The input Dorothea DataFrame (peak-level).
+
+    Returns:
+        pd.DataFrame: An event-level summary DataFrame.
+    """
+    # --- Input Validation --- #
+    required_columns = {
+        'event', 'time', 'reco_size', 'nS1', 'nS2', 'S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t',
+        'S2e', 'S2w', 'S2h', 'S2t', 'S2q'
+    }
+    missing_columns = required_columns - set(df_doro.columns)
+    if missing_columns:
+        raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
+
+    if df_doro.empty:
+        return pd.DataFrame()
+
+    # --- Event-Level Simple Aggregations ---
+    # These are properties that are constant per event or where a simple operation is sufficient
+    event_level_simple_agg = df_doro.groupby('event').agg(
+        time      = ('time', 'mean'),
+        reco_size = ('reco_size', 'first'),
+        nS1       = ('nS1', 'first'),
+        nS2       = ('nS2', 'first')
+    )
+
+    # --- Identify Primary S1 and S2 Pulses ---
+    # Handle first events without S1
+    s1_valid_mask = df_doro['S1e'].notna()
+    if s1_valid_mask.any():
+        # .idxmax() finds the index label of the row with the maximum value for each group.
+        idx_primary_s1 = df_doro[s1_valid_mask].groupby('event')['S1e'].idxmax()
+        # Select the full rows of these primary pulses
+        primary_s1_df = df_doro.loc[idx_primary_s1].set_index('event')
+    else:
+        # If no valid S1 pulses, create an empty DataFrame
+        primary_s1_df = pd.DataFrame(index=event_level_simple_agg.index)
+    
+    # S2 pulses are simpler
+    idx_primary_s2 = df_doro.groupby('event')['S2e'].idxmax()
+    primary_s2_df  = df_doro.loc[idx_primary_s2].set_index('event')
+
+    # --- Combine ALL Information ---
+    # Start with the simple aggregations
+    doro_info_df = event_level_simple_agg
+    # Add the S1 information
+    doro_info_df = doro_info_df.join(
+        primary_s1_df[['S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t']].add_prefix('main_')
+    )
+    # Add the S2 information
+    doro_info_df = doro_info_df.join(
+        primary_s2_df[['S2e', 'S2w', 'S2h', 'S2t', 'S2q']].add_prefix('main_')
+    )
+    # Reset the index to make 'event' a column again
+    doro_info_df = doro_info_df.reset_index()
+
+    return doro_info_df
+
+def summarize_hits_to_event_level(df_hits: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregates hit-level DataFrame to a final event-level summary.
+
+    This function calculates various event-level properties including barycenters,
+    spatial extent, total energy, and cluster multiplicity.
+
+    Args:
+        df_hits (pd.DataFrame): The input hit-level DataFrame.
+                                Must have columns like 'event', 'X', 'Y', 'Z', 'E_hit_pe', 'cluster'.
+
+    Returns:
+        pd.DataFrame: An event-level summary DataFrame with one row per event.
+    """
+    # --- Input Validation --- #
+    required_columns = {'event', 'X', 'Y', 'Z', 'E_hit_pe', 'cluster'}
+    missing_columns = required_columns - set(df_hits.columns)
+    if missing_columns:
+        raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
+
+    if df_hits.empty:
+        return pd.DataFrame()
+    
+    # --- Preliminary Computations ---    
+    # Pre-calculate R^2 to find R_max efficiently
+    df_hits['R_sq'] = df_hits['X']**2 + df_hits['Y']**2
+    # Pre-calculate weighted coordinates for barycenter calculation
+    df_hits['X_w'] = df_hits['X'] * df_hits['E_hit_pe']
+    df_hits['Y_w'] = df_hits['Y'] * df_hits['E_hit_pe']
+    df_hits['Z_w'] = df_hits['Z'] * df_hits['E_hit_pe']
+
+    # --- Event-Level Simple Aggregations ---
+    soph_info_df = df_hits.groupby('event').agg(
+        X_w_sum   = ('X_w', 'sum'),
+        Y_w_sum   = ('Y_w', 'sum'),
+        Z_w_sum   = ('Z_w', 'sum'),
+        Z_min     = ('Z', 'min'),
+        Z_max     = ('Z', 'max'),
+        R_sq      = ('R_sq', 'max'),
+        E_evt_pe  = ('E_hit_pe', 'sum'),        
+        n_cluster = ('cluster', 'max')
+    )
+    
+    # --- Post-Aggregation Computation ---    
+    # Calculate R_max from the max of R_sq
+    soph_info_df['R_max'] = np.sqrt(soph_info_df['R_sq'])
+    # Calculate the barycenters
+    # .replace(0, 1) prevents division by zero for events with zero energy.
+    total_energy = soph_info_df['E_evt_pe'].replace(0, 1)
+    soph_info_df['X_bary'] = soph_info_df['X_w_sum'] / total_energy
+    soph_info_df['Y_bary'] = soph_info_df['Y_w_sum'] / total_energy
+    soph_info_df['Z_bary'] = soph_info_df['Z_w_sum'] / total_energy
+    # Adjust n_cluster to be number of clusters (max_label + 1)
+    soph_info_df['n_cluster'] = soph_info_df['n_cluster'] + 1
+    
+    # Clean up and reorder columns for a nice output
+    final_columns = [
+        'X_bary', 'Y_bary', 'Z_bary', 'Z_min', 'Z_max', 'R_max', 
+        'E_evt_pe', 'n_cluster'
+    ]
+    
+    return soph_info_df[final_columns].reset_index()
+    
+
+def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, ) -> pd.DataFrame:
+    """
+    Aggregates hit-level data to event/peak-level summary data.
+    This df_soph should be the FINAL clean hits dataframe after spurious hits treatment.
+    """
+    if df_soph.empty:
+        return pd.DataFrame()
+
+    # ----- Dorothea Info ----- #
+    doro_info_df = get_primary_pulse_info(df_doro)
+    # doro_info_df = df_doro.groupby('event').agg(
+    #                                                 time = ('time', 'mean'),
+    #                                                 nS1  = ('nS1', 'first'),
+    #                                                 nS2  = ('nS2', 'first'),
+    #                                                 S1e_max = ('S1e', 'max'),
+    #                                                 S1e_corr_max = ('S1e_corr', 'max'),
+    #                                                 n_hits_original = ('n_hits_original', 'first')
+    # )
+
+    # ----- Sophronia Info ----- #
+    # Event-level
+    soph_event_info_df = summarize_hits_to_event_level(df_soph)
+    # soph_event_info_df = df_soph.groupby('event').agg(
+    #                                                         X_bary = ('X', lambda x: weighted_avg(x, df_soph.loc[x.index, 'E_hit_pe'])),
+    #                                                         Y_bary = ('Y', lambda y: weighted_avg(y, df_soph.loc[y.index, 'E_hit_pe'])),
+    #                                                         Z_bary = ('Z', lambda z: weighted_avg(z, df_soph.loc[z.index, 'E_hit_pe'])),
+    #                                                         Z_min = ('Z', 'min'),
+    #                                                         Z_max = ('Z', 'max'),
+    #                                                         R_max = ('X', lambda g: R_max_func(df_soph.loc[g.index])),
+    #                                                         E_evt_pe = ('E_hit_pe', 'sum'),
+    #                                                         n_hits = ('event', 'size')
+    # )
+    # Peak-level
+    soph_peak_info_df = df_soph.groupby(['event', 'npeak']).agg(E_peak_pe = ('E_hit_pe', 'sum')).reset_index()
+
+    # ----- Merge Final DataFrame ----- #
+    df_file = pd.merge(soph_peak_info_df, soph_event_info_df, on='event', how='left')
+    df_file = pd.merge(df_file, doro_info_df, on='event', how='left')
+
+    return df_file
+
+def tag_particles(
+                    df_peak_level: pd.DataFrame,
+                    size_threshold: int,
+                    s1_energy_threshold: float,
+                    event_column: str = 'event'
+                 ) -> pd.DataFrame:
+    """
+    Tags each peak in a DataFrame as 'electron' or 'alpha' based on its parent event's properties.
+
+    The classification is done at the event-level and then mapped back to each peak.
+    1. For events with nS1 = 1, classification is based on the S1 corrected energy.
+    2. For events with nS1 = 0, classification is based on the event size (number of hits).
+    3. Events with nS1 > 1 are tagged as 'unclassified'.
+
+    Args:
+        df_peak_level (pd.DataFrame): A DataFrame with one row per peak (event/peak level).
+                                      Must contain 'event', 'nS1', 'reco_size',
+                                      and 'main_S1e_corr' columns.
+        size_threshold (int): The threshold on the number of hits for nS1=0 events.
+        s1_energy_threshold (float): The threshold on S1 energy for nS1=1 events.
+
+    Returns:
+        pd.DataFrame: The input DataFrame with a new 'particle' column added.
+    """
+
+    if df_peak_level.empty:
+        df_peak_level['particle'] = pd.Series(dtype='object')
+        return df_peak_level
+    
+    # Event-level information
+    event_summary = df_peak_level.groupby(event_column).agg(
+                                                                nS1=('nS1', 'first'),
+                                                                reco_size=('reco_size', 'first'),
+                                                                main_S1e_corr=('main_S1e_corr', 'first')
+    )
+
+    # Masks of S1 multiplicity
+    is_ns1_zero = (event_summary['nS1'] == 0)
+    is_ns1_one  = (event_summary['nS1'] == 1)
+    # is_ns1_multiple = (df_doro['nS1'] > 1)    # To explicitly handle this case
+
+    # Masks for size and energy-based classification
+    is_small_size = (event_summary['reco_size'] <= size_threshold)
+    is_s1_low_energy = (event_summary['main_S1e_corr'] <= s1_energy_threshold)
+    
+    # Particle classification logic based on the defined conditions
+    conditions = [
+                    is_ns1_zero & is_small_size,        # Case 1: nS1=0 and small size event -> electron
+                    is_ns1_zero & ~is_small_size,       # Case 2: nS1=0 and large size event -> alpha
+                    is_ns1_one & is_s1_low_energy,      # Case 3: nS1=1 and low S1 energy    -> electron
+                    is_ns1_one & ~is_s1_low_energy,     # Case 4: nS1=1 and high S1 energy   -> alpha
+                 ]
+
+    choices = ['electron', 'alpha', 'electron', 'alpha']
+
+    # Map event-level classification back to peak-level DataFrame
+    event_summary['particle'] = np.select(conditions, choices, default='unclassified')
+    event_to_particle_map = event_summary['particle']
+
+    df_peak_level['particle'] = df_peak_level[event_column].map(event_to_particle_map)
+    
+    return df_peak_level
+
+def tag_event_by_detector_region(
+                                    df_peak_level: pd.DataFrame,
+                                    z_cut_low: float,
+                                    z_cut_high: float,
+                                    r_cut_high: float,
+                                    event_column: str = 'event'
+                                ) -> pd.Series:
+    """
+    Assigns a detector region tag to each event based on its full track extent.
+
+    The classification is sequential and mutually exclusive, following this priority:
+    1.  Anode (NO S1)
+    2.  Anode (track crosses low-Z boundary)
+    3.  Cathode (track crosses high-Z boundary)
+    4.  Fiducial (fully contained in Z and R)
+    5.  Tube (fully contained in Z, but outside R cut)
+    6.  Unclassified (should not happen with this logic, but included for safety)
+
+    Args:
+        df_peak_level (pd.DataFrame): A DataFrame with one row per peak (event/peak level).. 
+                                      Must contain columns like 'Z_min', 'Z_max', 'R_max', and 'nS1'.
+        z_cut_low (float): The lower Z boundary for the fiducial volume.
+        z_cut_high (float): The upper Z boundary for the fiducial volume.
+        r_cut_high (float): The radial boundary for the fiducial volume.
+        event_col (str): The name of the column representing the event ID. Default is 'event'.
+
+    Returns:
+        pd.DataFrame: The input DataFrame with a new 'region' column added.
+    """
+    if df_peak_level.empty:
+        df_peak_level['region'] = pd.Series(dtype='object')
+        return df_peak_level
+    
+    # Event-level information
+    event_summary = df_peak_level.groupby(event_column).agg(
+                                                                nS1=('nS1', 'first'),
+                                                                Z_min=('Z_min', 'first'),
+                                                                Z_max=('Z_max', 'first'),
+                                                                R_max=('R_max', 'first'),
+                                                            )
+
+    # Base masks
+    is_ns1_zero = (event_summary['nS1'] == 0)
+    crosses_anode_z   = (event_summary['Z_min'] <= z_cut_low)
+    crosses_cathode_z = (event_summary['Z_max'] >= z_cut_high)
+    is_fully_z_contained = ((event_summary['Z_min'] > z_cut_low) & (event_summary['Z_max'] < z_cut_high))
+    is_r_contained = (event_summary['R_max'] < r_cut_high)
+
+    # Conditions and choices for np.select (priority order matters!)    
+    conditions = [
+                    is_ns1_zero,                                # 0. If no S1, it's Anode.
+                    crosses_anode_z,                            # 1. If any part is in anode Z, it's Anode.
+                    crosses_cathode_z,                          # 2. If any part is in cathode Z, it's Cathode.
+                    is_fully_z_contained & is_r_contained,      # 3. If contained in Z and R, it's Fiducial.
+                    is_fully_z_contained & ~is_r_contained      # 4. If contained in Z but not R, it's Tube.
+                 ]
+    choices = ['anode', 'anode', 'cathode', 'fiducial', 'tube']
+
+    # Map event-level classification back to peak-level DataFrame
+    event_summary['region'] = np.select(conditions, choices, default='unclassified')
+    event_to_particle_map = event_summary['region']
+
+    df_peak_level['region'] = df_peak_level[event_column].map(event_to_particle_map)
+    
+    return df_peak_level

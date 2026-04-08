@@ -11,3 +11,11 @@ Dataframe merged:
   Total processed events: 939944
 
 --------------------------------------------------
+
+LATEST 1573* RUNS
+For period 2 with condition 'castle_closed_RAS':
+  Corrected Time = 502462.0302 s
+Dataframe merged successfully:
+  Total processed events: 143139
+
+--------------------------------------------------
