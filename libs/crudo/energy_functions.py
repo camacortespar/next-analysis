@@ -5,7 +5,7 @@ from . import plotting_tools as pt
 from . import utilities      as ut
 
 from invisible_cities.core.core_functions import in_range
-from invisible_cities.reco.corrections import apply_all_correction
+from invisible_cities.reco.corrections import read_maps, apply_all_correction
 from invisible_cities.types.symbols import NormMethod
 from invisible_cities.types.symbols import NormStrategy
 import numpy as np
@@ -298,7 +298,8 @@ def get_corrt(kr_fname, variable='s2e', n=4):
 def correct_energy_by_kr_map(
                                 df         : pd.DataFrame,
                                 kr_fname   : str,
-                                norm_method: NormMethod
+                                norm_method: NormMethod,
+                                city       : str = 'zemrude'
                             ) -> pd.DataFrame:
     """
     Applies energy correction using a krypton map and time evolution correction.
@@ -316,14 +317,23 @@ def correct_energy_by_kr_map(
     Returns:
         pd.DataFrame: DataFrame with a new column 'E_corr_pe' containing the corrected energy.
     """
-    # Get 3D spatial correction function
-    corr3d_func = get_corr3d(kr_fname, norm_method=norm_method)
-    # Get time-dependent correction function
-    corrt_func = get_corrt(kr_fname)
+    if city == 'zemrude':
+        # Get 3D spatial correction function
+        corr3d_func = get_corr3d(kr_fname, norm_method=norm_method)
+        # Get time-dependent correction function
+        corrt_func = get_corrt(kr_fname)
 
-    # Apply corrections
-    df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
-    # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
+        # Apply corrections
+        df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
+        # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
+
+    elif city == 'icaros':
+        cmap = read_maps(kr_fname)
+        corr_func = apply_all_correction(cmap, apply_temp=True, norm_strat=NormStrategy.max)
+        x_vals, y_vals, z_vals, t_vals = df.X.values, df.Y.values, df.Z.values, df.time.values
+        
+        df['corr_factor'] = corr_func(x_vals, y_vals, z_vals, t_vals)
+        df['E_corr_pe'] = df['E'] * df['corr_factor']
 
     # Replace NaN or negative corrected energy with 0
     df['E_corr_pe'] = np.where(pd.notna(df['E_corr_pe']) & (df['E_corr_pe'] > 0), df['E_corr_pe'], 0)
