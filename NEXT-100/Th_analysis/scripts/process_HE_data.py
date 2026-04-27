@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This script automates the pre-analysis workflow for low-background data (trigger 2) in the NEXT experiment.
+This script automates the pre-analysis workflow for high-energy data (238Th) in the NEXT experiment.
 It processes reconstructed data to prepare it for further analysis. The script performs the following high-level steps:
 
 1. Input Parsing: Reads command-line arguments to determine the run number and processing options.
@@ -11,10 +11,13 @@ It processes reconstructed data to prepare it for further analysis. The script p
 5. Summary Update: Optionally updates a summary CSV file with run-level statistics.
 
 Usage:
-    python process_low_bckg_data.py <run_number> [--events-only]
+    python process_HE_data.py <run_number> <ldc_number> <n_files> [--events-only]
 
 Options:
     --events-only: If specified, only event-level data is saved, skipping hit-level data.
+
+Note:
+    Yes, this script is a mirror of the one used for low background data processing, but adapted for the specific needs of high-energy calibration runs.
 """
 
 # ============================================================================
@@ -22,7 +25,7 @@ Options:
 # ============================================================================
 
 import sys
-sys.path.append('/lhome/ific/c/ccortesp/Analysis/')
+sys.path.append('/lhome/ific/c/ccortesp/Analysis')
 
 from libs import crudo
 
@@ -47,20 +50,16 @@ from typing import List, Callable, Tuple
 # 1. DIRECTORIES, PATHS, KEYS AND FILENAMES
 # -----------------------------------------
 # OUTPUT FILENAME TAG
-# This tag will be added to the output HDF5 filename to version the analysis.
-# Avoids overwriting previous results and helps keep track of different cut configurations.
-# Example tags: 'other', 'p2_nhit5', 'nhit5_Qthres7' (this is basically p1_nhit5)
-VERSION_TAG = 'p2_zemrude'
+VERSION_TAG = 'th_zemrude'
 
 # DIRECTORIES, PATHS & FILES
-DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
-ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/2025/'
-OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
-# Runs information
-RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
+# DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Th_runs/'
+DATA_DIR   = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/runs/'
+ICAROS_DIR = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/'
+OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Th_analysis/h5/'
 # Summary file
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'     # Choose your name
-SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/', SUMMARY_FILENAME)
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'    # Choose your name
+SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/txt/summaries/', SUMMARY_FILENAME)
 
 # KEYS
 DORO_KEY = 'DST/Events'
@@ -69,9 +68,9 @@ SOPH_KEY = 'RECO/Events'
 # COLUMNS TO USE
 DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1w', 'S1h', 'S1e', 'S1t', 'S2w', 'S2h', 'S2e', 'S2q', 'S2t', 'DT', 'X', 'Y', 'Z']
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
-FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'E_hit_pe', 'cluster']
+FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Q', 'E_hit_pe', 'cluster']
 
-# CUTFLOWS
+# CUTFLOW
 CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
 
 # ------------------------
@@ -85,7 +84,7 @@ M_NOPOLIKE = 0.17
 B_NOPOLIKE = -56
 
 # --- S1e Correction ---
-DT_CATH = 1350              # Cathode temporal position in [μs]
+DT_STOP = 1350              # Cathode temporal position in [μs]
 CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
@@ -100,12 +99,22 @@ def parse_arguments():
         argparse.Namespace: An object containing the parsed arguments.
     """
     # Initialize the parser
-    parser = argparse.ArgumentParser(description="Starting the processing of a low-background run...")
+    parser = argparse.ArgumentParser(description="Starting the processing of a Thorium calibrarion run...")
     
     # ----- Positional (Required) Arguments ----- #
     parser.add_argument("run_number",
                         type=int,
-                        help="The run number to process (e.g., 15737).")
+                        help="The run number to process (e.g., 15589).")
+    
+    parser.add_argument("ldc_number",
+                        type=int,
+                        choices=range(1, 8),        # Enforces that the value must be in this range
+                        metavar="ldc_number[1-7]",  # Provides a hint in the help message
+                        help="The LDC number, an integer from 1 to 7.")
+
+    parser.add_argument("n_files",
+                        type=str,
+                        help="Number of files to process. Use an integer (e.g., 10) or 'All' to process all available files.")
 
     parser.add_argument("--events-only",
                         action='store_true',
@@ -121,47 +130,19 @@ def parse_arguments():
     
     return args
 
-# # =============================================================================
-# # ----- PROCESSING -----
-# # =============================================================================
+# =============================================================================
+# ----- PROCESSING -----
+# =============================================================================
 
 def process_file(filepath, kr_path, cut_names=CUT_NAMES):
     """
-    Processes a single file containing NEXT-100 background data, applying a series of cuts and corrections 
-    to prepare the data for further analysis. 
-    Parameters:
-    -----------
-        filepath : str
-            Path to the input HDF5 file containing Dorothea and Sophronia data.
-        kr_path : str
-            Path to the Krypton map file used for energy corrections.
-        cut_names : list of str, optional
-            List of cut names to track the number of events passing each cut. Defaults to CUT_NAMES.
-    Returns:
-    --------
-        df_event_peak : pandas.DataFrame
-            Dataframe containing the processed data aggregated to the event-peak level.
-        df_soph_final : pandas.DataFrame
-            Dataframe containing the final hits-level data with relevant columns.
-        local_evt_counter : dict
-            Dictionary containing the count of events passing each cut.
-    Notes:
-    ------
-    - The function performs the following steps:
-        1. Loads Dorothea and Sophronia data from the input file.
-        2. Computes the Z position using drift velocity and removes events with Z <= 0.
-        3. Applies energy corrections using a Krypton map.
-        4. Applies S1e cuts and corrections based on alpha analysis.
-        5. Deals with spurious hits using a clustering function.
-        6. Aggregates the data to event-peak level for further analysis.
-    - If an error occurs during processing, the function returns empty dataframes and a dictionary of zeros 
-      to ensure robustness.
+    This MUST be the same function used for processing low background data!
     """
     filename = os.path.basename(filepath)
     print(f"→ Processing file: {filename}")
     
     # Initialize counts for this specific file
-    local_evt_counter = {cut: 0 for cut in cut_names}
+    local_evt_counter = {name: 0 for name in cut_names}
     
     try:
         # ----- Load Dorothea & Sophronia ----- #
@@ -173,7 +154,7 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         reco_ids = df_soph['event'].unique()
         local_evt_counter[cut_names[0]] = len(reco_ids)
 
-        # ----- Removing Z <= 0 ----- #
+         # ----- Removing Z <= 0 ----- #
         events_with_negative_z_hits = df_soph.loc[df_soph['Z'] < 0, 'event'].unique()
         events_with_positive_z_hits = np.setdiff1d(reco_ids, events_with_negative_z_hits)
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=events_with_positive_z_hits)
@@ -188,15 +169,15 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
         local_evt_counter[cut_names[2]] = df_soph['event'].nunique()
         # S1e Correction
-        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
+        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_STOP, output_column='S1e_corr')     # Based on alpha analysis
 
         # ----- Deal with Spurious Hits ----- #
-        df_clust_soph = CLUSTER_FUNCTION(df_soph)    # Applying hits_clusterizer
+        df_clust_soph = CLUSTER_FUNCTION(df_soph)     # Applying hits_clusterizer
         df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='E_corr_pe')
         clean_evt_ids = df_clean_soph['event'].unique()
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids)
         local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
-
+                
         # ----- Data @ Event/Peak-Level ----- #
         # First, store original event size from Sophronia into Dorothea dataframe
         original_event_size_df = df_soph.groupby('event').size().rename('reco_size').reset_index()
@@ -205,7 +186,7 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
         df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final)
-        
+            
     except Exception as e:
         print(f"   Failed to process file {filename}. Error: {e}", file=sys.stderr)
         # Return a dictionary of zeros on failure to not affect the final sum
@@ -222,48 +203,50 @@ def main():
     Música maestro! This is the main function that orchestrates the processing
     """
     # 1. --- PARSE COMMAND-LINE ARGUMENTS
-    #        EXTRACT RUN INFORMATION
     #        LOAD CORRESPONDING KRYPTON MAP FOR ENERGY CORRECTION
     #        SET UP PATHS TO PROCESS
     args = parse_arguments()
-    print("\n----- Processing Configuration -----")
-    print(f"Run Number: {args.run_number}")
 
-    RUNS_INFO_DF = pd.read_csv(RUNS_INFO_PATH, index_col='run_number')
-    RUNS_INFO_DF.columns = RUNS_INFO_DF.columns.str.strip()
-    if args.run_number not in RUNS_INFO_DF.index:
-        print(f"   Error: Run {args.run_number} not found in runs information.", file=sys.stderr)
+    # Construct specific input/output directories based on run and LDC
+    INPUT_DIR = os.path.join(DATA_DIR, f"{args.run_number}", f"ldc{args.ldc_number}")
+    if not os.path.isdir(INPUT_DIR):
+        print(f"   Error: Input directory '{INPUT_DIR}' does not exist.", file=sys.stderr)
         sys.exit(1)
-    # Extract run information from the dataframe
-    RUN_DURATION = RUNS_INFO_DF.at[args.run_number, 'duration']
-    RUN_OK   = RUNS_INFO_DF.at[args.run_number, 'OK']
-    RUN_LOST = RUNS_INFO_DF.at[args.run_number, 'LOST']
-    print(f"Duration: {RUN_DURATION} s, OK: {RUN_OK}, LOST: {RUN_LOST}")
-
-    # Construct specific list of files to process based on run number
-    files_to_process = []
-    # LDC loop
-    for ldc in range(1, 8):
-        # Load the HDF5 file
-        h5_path = os.path.join(DATA_DIR, f'run_{args.run_number}_ldc{ldc}_trg2_sophronia.h5')
-        if os.path.isfile(h5_path):
-            files_to_process.append(h5_path)
-    if not files_to_process:
-        print(f"   Error: No .h5 files found to process.", file=sys.stderr)
+    file_list = sorted(glob.glob(os.path.join(INPUT_DIR, "*.h5")))
+    if not file_list:
+        print(f"   Error: No .h5 files found in '{INPUT_DIR}'.", file=sys.stderr)
         sys.exit(1)
 
-    kr_file = next((f for f in os.listdir(ICAROS_DIR) if f'run_{args.run_number}' in f and f.endswith('.zemrude.h5')), None)
+    # Determine the number of files to process
+    max_files_to_process = None
+    if args.n_files.lower() == 'all':
+        max_files_to_process = None     # A value of None will signify no limit
+    else:
+        try:
+            max_files_to_process = int(args.n_files)
+            if max_files_to_process <= 0:
+                print(f"   Error: Number of files must be a positive integer, not '{args.n_files}'.", file=sys.stderr)
+                sys.exit(1)
+        except ValueError:
+            print(f"   Error: Invalid value for n_files. Expected a number or 'All', but got '{args.n_files}'.", file=sys.stderr)
+            sys.exit(1)
+    files_to_process = file_list[:max_files_to_process] if max_files_to_process is not None else file_list
+
+    kr_file = next((f for f in os.listdir(ICAROS_DIR) if f.endswith('zemrude.h5')), None)
     if not kr_file:
         raise FileNotFoundError(f"   Error: NO Kr map file found for run {args.run_number} in {ICAROS_DIR}")
         sys.exit(1)
     KR_PATH = os.path.join(ICAROS_DIR, kr_file)
-    print(f"Kr map file found: {kr_file}")
-
+    
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    # Print configuration summary
+    print("\n----- Processing Configuration -----")
+    print(f"Run Number      : {args.run_number}")
+    print(f"LDC Number      : {args.ldc_number}")
+    print(f"Files to Process: {'All' if max_files_to_process is None else len(files_to_process)}")
+    print(f"Kr map file found: {kr_file}")
     print("------------------------------------")
-    print("Files to Process:")
-    for fp in files_to_process:
-        print(os.path.basename(fp))
+    print(f"Input Directory : {INPUT_DIR}")
     print(f"Output Directory: {OUTPUT_DIR}")
     print("------------------------------------")
 
@@ -280,11 +263,11 @@ def main():
     print("\n----- Aggregating results")
     all_processed_dfs = []
     all_sophronia_dfs = []
-    total_cut_counts = {name: 0 for name in CUT_NAMES} 
+    total_cut_counts = {name: 0 for name in CUT_NAMES}
 
     # Unpack the results (dataframes, counts dict)
     for df_file, df_soph, local_counts in results:
-        if not df_file.empty:
+        if not df_file.empty and not df_soph.empty:
             all_processed_dfs.append(df_file)
             # Only keep hit-level data if --events-only flag is not set
             if not args.events_only and not df_soph.empty:
@@ -314,9 +297,11 @@ def main():
     # npeak column in run_event_df is uint64, convert to int64
     for col in run_event_df.select_dtypes(include=['uint64']).columns:
         run_event_df[col] = run_event_df[col].astype('int64')
-
+    
     # Combine all processed dataframes into one
-    output_filename = f"processed_run_{args.run_number}_{VERSION_TAG}"
+    output_filename = f"processed_run_{args.run_number}_ldc{args.ldc_number}_{VERSION_TAG}"
+    if args.n_files.lower() != 'all':
+        output_filename += f"_n{len(files_to_process)}"
     if args.events_only:
         output_filename += "_events"
     output_filename += ".h5"
@@ -332,37 +317,26 @@ def main():
         print("HDF5 saving complete.")
     except Exception as e:
         print(f"   Error writing to HDF5 file: {e}", file=sys.stderr)
-    
+
     # Summary file: just when --events-only is set
     if args.events_only:
         print("\n----- Updating summary file")
-        summary_data = {
-                            'Run_ID': [args.run_number],
-                            'Duration': [RUN_DURATION],
-                            'Date_CV': [round(run_event_df['time'].mean(), 4)],
-                            'Date_Err': [round(run_event_df['time'].sem(), 4)],
-                            'OK': [RUN_OK],
-                            'LOST': [RUN_LOST]
-                        }
-        # Add the cut counts
-        for name in total_cut_counts.keys():
-            summary_data[name] = [total_cut_counts.get(name, 0)]
-        summary_row_df = pd.DataFrame(summary_data)
-        # Append to the CSV file
-        print(f"Appending summary to: {SUMMARY_PATH}")
+        summary_file_exists = os.path.isfile(SUMMARY_PATH)
+        header = ['run_number', 'ldc', 'n_files_processed'] + CUT_NAMES
+        data_row = [args.run_number, args.ldc_number, args.n_files.lower()] + [total_cut_counts[name] for name in CUT_NAMES]
+
         try:
-            summary_row_df.to_csv(
-                                    SUMMARY_PATH,
-                                    mode='a',
-                                    header=not os.path.exists(SUMMARY_PATH),
-                                    index='Run_ID',
-                                )
-            print("Summary file updated.")
+            with open(SUMMARY_PATH, 'a', newline='') as f:
+                writer = csv.writer(f)
+                if not summary_file_exists:
+                    writer.writerow(header)
+                writer.writerow(data_row)
+            print(f"You can find the event summary in: {SUMMARY_PATH}")
         except IOError as e:
             print(f"   Error writing to summary file: {e}", file=sys.stderr)
     else:
         print("\n----- Skipping summary file update since --events-only flag is not set.")
-
+        
     print("\nY ya, eso es todo, eso es todo ♥")
 
 if __name__ == "__main__":

@@ -318,12 +318,12 @@ def correct_energy_by_kr_map(
     """
     # Get 3D spatial correction function
     corr3d_func = get_corr3d(kr_fname, norm_method=norm_method)
-    # # Get time-dependent correction function
-    # corrt_func = get_corrt(kr_fname)
+    # Get time-dependent correction function
+    corrt_func = get_corrt(kr_fname)
 
     # Apply corrections
-    # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
-    df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
+    df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
+    # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
 
     # Replace NaN or negative corrected energy with 0
     df['E_corr_pe'] = np.where(pd.notna(df['E_corr_pe']) & (df['E_corr_pe'] > 0), df['E_corr_pe'], 0)

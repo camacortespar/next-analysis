@@ -426,28 +426,10 @@ def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, 
 
     # ----- Dorothea Info ----- #
     doro_info_df = get_primary_pulse_info(df_doro)
-    # doro_info_df = df_doro.groupby('event').agg(
-    #                                                 time = ('time', 'mean'),
-    #                                                 nS1  = ('nS1', 'first'),
-    #                                                 nS2  = ('nS2', 'first'),
-    #                                                 S1e_max = ('S1e', 'max'),
-    #                                                 S1e_corr_max = ('S1e_corr', 'max'),
-    #                                                 n_hits_original = ('n_hits_original', 'first')
-    # )
 
     # ----- Sophronia Info ----- #
     # Event-level
     soph_event_info_df = summarize_hits_to_event_level(df_soph)
-    # soph_event_info_df = df_soph.groupby('event').agg(
-    #                                                         X_bary = ('X', lambda x: weighted_avg(x, df_soph.loc[x.index, 'E_hit_pe'])),
-    #                                                         Y_bary = ('Y', lambda y: weighted_avg(y, df_soph.loc[y.index, 'E_hit_pe'])),
-    #                                                         Z_bary = ('Z', lambda z: weighted_avg(z, df_soph.loc[z.index, 'E_hit_pe'])),
-    #                                                         Z_min = ('Z', 'min'),
-    #                                                         Z_max = ('Z', 'max'),
-    #                                                         R_max = ('X', lambda g: R_max_func(df_soph.loc[g.index])),
-    #                                                         E_evt_pe = ('E_hit_pe', 'sum'),
-    #                                                         n_hits = ('event', 'size')
-    # )
     # Peak-level
     soph_peak_info_df = df_soph.groupby(['event', 'npeak']).agg(E_peak_pe = ('E_hit_pe', 'sum')).reset_index()
 
