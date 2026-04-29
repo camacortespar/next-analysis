@@ -11,7 +11,7 @@ It processes reconstructed data to prepare it for further analysis. The script p
 5. Summary Update: Optionally updates a summary CSV file with run-level statistics.
 
 Usage:
-    python process_low_bckg_data.py <run_number> [--events-only]
+    python process_low_bckg_data.py <run_number> <kr_city> [--events-only]
 
 Options:
     --events-only: If specified, only event-level data is saved, skipping hit-level data.
@@ -50,7 +50,7 @@ from typing import List, Callable, Tuple
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
 # Example tags: 'other', 'p2_nhit5', 'nhit5_Qthres7' (this is basically p1_nhit5)
-VERSION_TAG = 'p2_zemrude'
+VERSION_TAG = 'p2_icaros'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
@@ -107,6 +107,10 @@ def parse_arguments():
                         type=int,
                         help="The run number to process (e.g., 15737).")
 
+    parser.add_argument("kr_city",
+                        type=str,
+                        help="The Krypton map city to use for energy correction ('icaros', 'zemrude').")
+
     parser.add_argument("--events-only",
                         action='store_true',
                         help="If specified, only save the event-level data, not the hit-level data.")
@@ -125,7 +129,7 @@ def parse_arguments():
 # # ----- PROCESSING -----
 # # =============================================================================
 
-def process_file(filepath, kr_path, cut_names=CUT_NAMES):
+def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     """
     Processes a single file containing NEXT-100 background data, applying a series of cuts and corrections 
     to prepare the data for further analysis. 
@@ -180,7 +184,7 @@ def process_file(filepath, kr_path, cut_names=CUT_NAMES):
         local_evt_counter[cut_names[1]] = df_soph['event'].nunique()
 
         # ----- Energy Correction ----- #
-        df_soph = crudo.ef.correct_energy_by_kr_map(df_soph, kr_path, norm_method=NormMethod.median_anode)
+        df_soph = crudo.ef.correct_energy_by_kr_map(df_soph, kr_path, norm_method=NormMethod.median_anode, city=kr_city)
 
         # ----- S1e Cut & Correction ----- #
         # nS1 <= 1 (NO-Polike)
@@ -252,7 +256,12 @@ def main():
         print(f"   Error: No .h5 files found to process.", file=sys.stderr)
         sys.exit(1)
 
-    kr_file = next((f for f in os.listdir(ICAROS_DIR) if f'run_{args.run_number}' in f and f.endswith('.zemrude.h5')), None)
+    print(f"Kr map city: {args.kr_city}")
+    kr_file = next((f 
+                    for f in os.listdir(ICAROS_DIR) 
+                    if (f'run_{args.run_number}' in f and
+                        ((args.kr_city == 'icaros' and f.endswith('.map.h5')) or 
+                        (args.kr_city == 'zemrude' and f.endswith('.zemrude.h5'))))), None)
     if not kr_file:
         raise FileNotFoundError(f"   Error: NO Kr map file found for run {args.run_number} in {ICAROS_DIR}")
         sys.exit(1)
@@ -273,7 +282,7 @@ def main():
 
     # The Parallel object manages the pool of worker processes.
     # `delayed(process_file)` creates a lightweight "promise" of a function call.
-    results = Parallel(n_jobs=n_cores)(delayed(process_file)(fp, KR_PATH) for fp in files_to_process)
+    results = Parallel(n_jobs=n_cores)(delayed(process_file)(fp, KR_PATH, kr_city=args.kr_city) for fp in files_to_process)
     print("----- Parallel processing finished")
 
     # 3. --- COMBINE RESULTS FROM ALL FILES

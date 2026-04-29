@@ -12,7 +12,7 @@ Dataframe merged:
 
 --------------------------------------------------
 
-LATEST 1573* RUNS
+LATEST 1573* RUNS ZEMRUDE
 For period 2 with condition 'castle_closed_RAS':
   Corrected Time = 502462.0302 s
 Dataframe merged successfully:
@@ -20,7 +20,15 @@ Dataframe merged successfully:
 
 --------------------------------------------------
 
-10/04/26:
+10/04/26: ZEMRUDE
+For period 2 with condition 'castle_closed_RAS':
+  Corrected Time = 3485614.5338 s
+Dataframe merged successfully:
+  Total processed events: 939953
+
+--------------------------------------------------
+
+28/04/26: ICAROS
 For period 2 with condition 'castle_closed_RAS':
   Corrected Time = 3485614.5338 s
 Dataframe merged successfully:

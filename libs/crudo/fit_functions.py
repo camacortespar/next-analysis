@@ -1,5 +1,6 @@
 import numpy  as np
-from   scipy.special  import erf
+from scipy.special  import erf
+from scipy.optimize import curve_fit
 
 
 ##############################
@@ -458,3 +459,69 @@ def trigauss_func(x, A1, mu1, sigma1, A2, mu2, sigma2, A3, mu3, sigma3):
     g2 = A2 * np.exp(-((x - mu2) ** 2) / (2 * sigma2 ** 2))
     g3 = A3 * np.exp(-((x - mu3) ** 2) / (2 * sigma3 ** 2))
     return g1 + g2 + g3
+
+def crystal_ball_with_linear_bg(x, amplitude, mu, sigma, alpha, n, slope, intercept):
+    '''
+    Crystal Ball function with a linear background.
+    '''
+    # Failsafes for stability
+    sigma = abs(sigma) if sigma != 0 else 1e-9
+    alpha = abs(alpha) if alpha != 0 else 1e-9      # alpha controls where the tail starts, so it must be positive and non-zero
+    n = abs(n) if n != 0 else 1e-9
+    
+    # Gaussian part
+    t = (x - mu) / sigma
+    # gauss = amplitude * np.exp(-0.5 * t**2)
+    gauss = np.exp(-0.5 * t**2)
+    
+    # Power-law tail part
+    # A = (n / abs(alpha))**n * np.exp(-0.5 * alpha**2)
+    # B = n / abs(alpha) - abs(alpha)
+    # tail = amplitude * A * (B - t)**(-n)
+
+    # if n / alpha > 1e6: # Heuristic to prevent overflow
+    #     A = 1e99
+    # else:
+    A = (n / alpha)**n * np.exp(-0.5 * alpha**2)
+    B = n / alpha - alpha
+    tail_base = B - t
+    # Power-law tail part (only where the base is positive)
+    tail = A * np.power(tail_base, -n, where=tail_base > 0, out=np.full_like(tail_base, 0))
+
+    # Crystal Ball shape
+    cb_shape = np.where(t > -alpha, gauss, tail)
+    
+    return amplitude * cb_shape + (slope * x + intercept)
+
+def fit_peak_crystal_ball(data, mu_guess, fit_range, bins='auto'):
+    '''
+    Fits a Crystal Ball + linear background to a peak.
+    '''
+    y, bin_edges = np.histogram(data, bins=bins, range=fit_range)
+    x = (bin_edges[:-1] + bin_edges[1:]) / 2
+
+    if np.sum(y) < 50: 
+        return None, None, (x, y)
+    
+    # Smart guesses
+    slope_guess     = (np.mean(y[-5:]) - np.mean(y[:5])) / (x[-1] - x[0])
+    intercept_guess = np.mean(y[:5]) - slope_guess * x[0]
+    amplitude_guess = y.max() - (slope_guess * mu_guess + intercept_guess)
+    sigma_guess = (fit_range[1] - fit_range[0]) / 10
+    
+    # Crystal ball specific guesses: alpha controls where tail starts, n controls shape
+    alpha_guess = 1.0 
+    n_guess = 2.0
+    
+    p0 = [amplitude_guess, mu_guess, sigma_guess, alpha_guess, n_guess, slope_guess, intercept_guess]
+    bounds = (
+                [0,       fit_range[0],     0,   0,     0,   -np.inf, -np.inf],     # Lower bounds
+                [np.inf,  fit_range[1], np.inf, 10,    10,    np.inf,  np.inf]      # Upper bounds
+            )
+
+    try:
+        popt, pcov = curve_fit(crystal_ball_with_linear_bg, x, y, p0=p0, sigma=np.sqrt(np.maximum(y, 1)), bounds=bounds, maxfev=10000)
+        return popt, pcov, (x, y)
+    except (RuntimeError, ValueError) as e:
+        print(f"   Fit failed for peak near {mu_guess:.1f}. Reason: {e}")
+        return None, None, (x, y)
