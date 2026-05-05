@@ -163,7 +163,7 @@ def hits_clusterizer(clustering_params: dict) -> Callable:
     
 #     return cluster_tagger
 
-def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe') -> pd.DataFrame:
+def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe', output_column='E_hit_pe') -> pd.DataFrame:
     """
     Processes a DataFrame of cluterized hits (extra 'cluster' column) to filter noise and conserve energy.
 
@@ -182,7 +182,7 @@ def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe') -> pd.D
                       with an added 'E_hit_pe' column containing the redistributed energy per hit.
     """
     if df_hits.empty:
-        return pd.DataFrame(columns=list(df_hits.columns) + ['E_hit_pe'])
+        return pd.DataFrame(columns=list(df_hits.columns) + [output_column])
 
     # STEP A: Identify "good" noisy/isolated hits
     noise_mask = (df_hits['cluster'] == -1)
@@ -190,7 +190,7 @@ def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe') -> pd.D
     isolated_hits_df     = df_hits[noise_mask].copy()       # Noisy/isolated hits
 
     if non_isolated_hits_df.empty:
-        return pd.DataFrame(columns=list(df_soph.columns) + ['E_hit_pe'])
+        return pd.DataFrame(columns=list(df_soph.columns) + [output_column])
 
     # Find the Z-span for the main track of each event
     z_ranges = non_isolated_hits_df.groupby('event')['Z'].agg(['min', 'max']).rename(columns={'min': 'Z_min', 'max': 'Z_max'})
@@ -210,10 +210,10 @@ def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe') -> pd.D
         # Calculate the total energy of the main track for proportional scaling
         total_non_iso_energy = non_isolated_hits_df.groupby('event')[ energy_column].transform('sum').replace(0, 1)
         # Redistribution formula
-        non_isolated_hits_df['E_hit_pe'] = (non_isolated_hits_df[energy_column] + 
+        non_isolated_hits_df[output_column] = (non_isolated_hits_df[energy_column] + 
                                            (non_isolated_hits_df[energy_column] / total_non_iso_energy) * non_isolated_hits_df['E_iso_to_add'])
     else:
-        non_isolated_hits_df['E_hit_pe'] = non_isolated_hits_df[energy_column]
+        non_isolated_hits_df[output_column] = non_isolated_hits_df[energy_column]
 
     # Drop additional columns
     non_isolated_hits_df.drop(columns=['E_iso_to_add'], inplace=True, errors='ignore')

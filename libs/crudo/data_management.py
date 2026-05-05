@@ -284,26 +284,96 @@ def apply_cut_and_update(
 
 # Aggregated data management functions for loading, filtering, merging, and saving data
 
-def get_primary_pulse_info(df_doro: pd.DataFrame) -> pd.DataFrame:
+# def get_primary_pulse_info(df_doro: pd.DataFrame, reco_size_variable='old_reco_size') -> pd.DataFrame:
+#     """
+#     Aggregates Dorothea data to the event level.
+
+#     For each event, it calculates:
+#     - General event information (time, nS1, nS2).
+#     - Properties of the S1 pulse with the maximum energy ('S1e').
+#     - Properties of the S2 pulse with the maximum energy ('S2e').
+
+#     Args:
+#         df_doro (pd.DataFrame): The input Dorothea DataFrame (peak-level).
+
+#     Returns:
+#         pd.DataFrame: An event-level summary DataFrame.
+#     """
+#     # --- Input Validation --- #
+#     required_columns = {
+#         'event', 'time', reco_size_variable, 'nS1', 'nS2', 'S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t',
+#         'S2e', 'S2w', 'S2h', 'S2t', 'S2q'
+#     }
+#     missing_columns = required_columns - set(df_doro.columns)
+#     if missing_columns:
+#         raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
+
+#     if df_doro.empty:
+#         return pd.DataFrame()
+
+#     # --- Event-Level Simple Aggregations ---
+#     # These are properties that are constant per event or where a simple operation is sufficient
+#     event_level_simple_agg = df_doro.groupby('event').agg(
+#         time = ('time', 'mean'),
+#         old_reco_size = (reco_size_variable, 'first'),
+#         nS1  = ('nS1', 'first'),
+#         nS2  = ('nS2', 'first')
+#     )
+
+#     # --- Identify Primary S1 and S2 Pulses ---
+#     # Handle first events without S1
+#     s1_valid_mask = df_doro['S1e'].notna()
+#     if s1_valid_mask.any():
+#         # .idxmax() finds the index label of the row with the maximum value for each group.
+#         idx_primary_s1 = df_doro[s1_valid_mask].groupby('event')['S1e'].idxmax()
+#         # Select the full rows of these primary pulses
+#         primary_s1_df = df_doro.loc[idx_primary_s1].set_index('event')
+#     else:
+#         # If no valid S1 pulses, create an empty DataFrame
+#         primary_s1_df = pd.DataFrame(index=event_level_simple_agg.index)
+    
+#     # S2 pulses are simpler
+#     idx_primary_s2 = df_doro.groupby('event')['S2e'].idxmax()
+#     primary_s2_df  = df_doro.loc[idx_primary_s2].set_index('event')
+
+#     # --- Combine ALL Information ---
+#     # Start with the simple aggregations
+#     doro_info_df = event_level_simple_agg
+#     # Add the S1 information
+#     doro_info_df = doro_info_df.join(
+#         primary_s1_df[['S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t']].add_prefix('main_')
+#     )
+#     # Add the S2 information
+#     doro_info_df = doro_info_df.join(
+#         primary_s2_df[['S2e', 'S2w', 'S2h', 'S2t', 'S2q']].add_prefix('main_')
+#     )
+#     # Reset the index to make 'event' a column again
+#     doro_info_df = doro_info_df.reset_index()
+
+#     return doro_info_df
+
+def get_primary_pulse_info(df_doro: pd.DataFrame, event_level_cols: List[str]) -> pd.DataFrame:
     """
-    Aggregates Dorothea data to the event level.
+    Aggregates Dorothea data to the event level in a controlled, scalable way.
 
     For each event, it calculates:
-    - General event information (time, nS1, nS2).
+    - User-defined event-level properties by taking the 'first' value.
     - Properties of the S1 pulse with the maximum energy ('S1e').
     - Properties of the S2 pulse with the maximum energy ('S2e').
 
     Args:
         df_doro (pd.DataFrame): The input Dorothea DataFrame (peak-level).
+        event_level_cols (list of str): List of column names to aggregate at the event level.
 
     Returns:
         pd.DataFrame: An event-level summary DataFrame.
     """
+    # EVENT_LEVEL_COLS = event_level_cols
+    S1_PULSE_COLS = ['S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t']
+    S2_PULSE_COLS = ['S2e', 'S2w', 'S2h', 'S2t', 'S2q']
+
     # --- Input Validation --- #
-    required_columns = {
-        'event', 'time', 'reco_size', 'nS1', 'nS2', 'S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t',
-        'S2e', 'S2w', 'S2h', 'S2t', 'S2q'
-    }
+    required_columns = set(['event', 'time'] + event_level_cols + S1_PULSE_COLS + S2_PULSE_COLS)
     missing_columns = required_columns - set(df_doro.columns)
     if missing_columns:
         raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
@@ -313,12 +383,9 @@ def get_primary_pulse_info(df_doro: pd.DataFrame) -> pd.DataFrame:
 
     # --- Event-Level Simple Aggregations ---
     # These are properties that are constant per event or where a simple operation is sufficient
-    event_level_simple_agg = df_doro.groupby('event').agg(
-        time      = ('time', 'mean'),
-        reco_size = ('reco_size', 'first'),
-        nS1       = ('nS1', 'first'),
-        nS2       = ('nS2', 'first')
-    )
+    simple_agg_dict = {col: (col, 'first') for col in event_level_cols}
+    simple_agg_dict['time'] = ('time', 'mean')  # Special case for 'time'
+    event_level_simple_agg = df_doro.groupby('event').agg(**simple_agg_dict)
 
     # --- Identify Primary S1 and S2 Pulses ---
     # Handle first events without S1
@@ -330,7 +397,7 @@ def get_primary_pulse_info(df_doro: pd.DataFrame) -> pd.DataFrame:
         primary_s1_df = df_doro.loc[idx_primary_s1].set_index('event')
     else:
         # If no valid S1 pulses, create an empty DataFrame
-        primary_s1_df = pd.DataFrame(index=event_level_simple_agg.index)
+        primary_s1_df = pd.DataFrame(index=event_level_simple_agg.index, columns=S1_PULSE_COLS)
     
     # S2 pulses are simpler
     idx_primary_s2 = df_doro.groupby('event')['S2e'].idxmax()
@@ -340,19 +407,15 @@ def get_primary_pulse_info(df_doro: pd.DataFrame) -> pd.DataFrame:
     # Start with the simple aggregations
     doro_info_df = event_level_simple_agg
     # Add the S1 information
-    doro_info_df = doro_info_df.join(
-        primary_s1_df[['S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t']].add_prefix('main_')
-    )
+    doro_info_df = doro_info_df.join(primary_s1_df[S1_PULSE_COLS].add_prefix('main_'))
     # Add the S2 information
-    doro_info_df = doro_info_df.join(
-        primary_s2_df[['S2e', 'S2w', 'S2h', 'S2t', 'S2q']].add_prefix('main_')
-    )
+    doro_info_df = doro_info_df.join(primary_s2_df[S2_PULSE_COLS].add_prefix('main_'))
     # Reset the index to make 'event' a column again
     doro_info_df = doro_info_df.reset_index()
 
     return doro_info_df
 
-def summarize_hits_to_event_level(df_hits: pd.DataFrame) -> pd.DataFrame:
+def summarize_hits_to_event_level(df_hits: pd.DataFrame, energy_column='E_hit_mev', size_variable='event_size') -> pd.DataFrame:
     """
     Aggregates hit-level DataFrame to a final event-level summary.
 
@@ -361,13 +424,13 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame) -> pd.DataFrame:
 
     Args:
         df_hits (pd.DataFrame): The input hit-level DataFrame.
-                                Must have columns like 'event', 'X', 'Y', 'Z', 'E_hit_pe', 'cluster'.
+                                Must have columns like 'event', 'X', 'Y', 'Z', 'energy', 'cluster'.
 
     Returns:
         pd.DataFrame: An event-level summary DataFrame with one row per event.
     """
     # --- Input Validation --- #
-    required_columns = {'event', 'X', 'Y', 'Z', 'E_hit_pe', 'cluster'}
+    required_columns = {'event', 'X', 'Y', 'Z', energy_column, 'cluster'}
     missing_columns = required_columns - set(df_hits.columns)
     if missing_columns:
         raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
@@ -379,19 +442,25 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame) -> pd.DataFrame:
     # Pre-calculate R^2 to find R_max efficiently
     df_hits['R_sq'] = df_hits['X']**2 + df_hits['Y']**2
     # Pre-calculate weighted coordinates for barycenter calculation
-    df_hits['X_w'] = df_hits['X'] * df_hits['E_hit_pe']
-    df_hits['Y_w'] = df_hits['Y'] * df_hits['E_hit_pe']
-    df_hits['Z_w'] = df_hits['Z'] * df_hits['E_hit_pe']
+    df_hits['X_w'] = df_hits['X'] * df_hits[energy_column]
+    df_hits['Y_w'] = df_hits['Y'] * df_hits[energy_column]
+    df_hits['Z_w'] = df_hits['Z'] * df_hits[energy_column]
+    # Event size
+    event_size_df = df_hits.groupby('event').size().rename(size_variable)
 
     # --- Event-Level Simple Aggregations ---
     soph_info_df = df_hits.groupby('event').agg(
         X_w_sum   = ('X_w', 'sum'),
         Y_w_sum   = ('Y_w', 'sum'),
         Z_w_sum   = ('Z_w', 'sum'),
+        X_min     = ('X', 'min'),
+        X_max     = ('X', 'max'),
+        Y_min     = ('Y', 'min'),
+        Y_max     = ('Y', 'max'),
         Z_min     = ('Z', 'min'),
         Z_max     = ('Z', 'max'),
         R_sq      = ('R_sq', 'max'),
-        E_evt_pe  = ('E_hit_pe', 'sum'),        
+        E_evt_mev  = (energy_column, 'sum'),        
         n_cluster = ('cluster', 'max')
     )
     
@@ -400,23 +469,25 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame) -> pd.DataFrame:
     soph_info_df['R_max'] = np.sqrt(soph_info_df['R_sq'])
     # Calculate the barycenters
     # .replace(0, 1) prevents division by zero for events with zero energy.
-    total_energy = soph_info_df['E_evt_pe'].replace(0, 1)
+    total_energy = soph_info_df['E_evt_mev'].replace(0, 1)
     soph_info_df['X_bary'] = soph_info_df['X_w_sum'] / total_energy
     soph_info_df['Y_bary'] = soph_info_df['Y_w_sum'] / total_energy
     soph_info_df['Z_bary'] = soph_info_df['Z_w_sum'] / total_energy
     # Adjust n_cluster to be number of clusters (max_label + 1)
     soph_info_df['n_cluster'] = soph_info_df['n_cluster'] + 1
+    # Event size
+    soph_info_df = soph_info_df.join(event_size_df)
     
     # Clean up and reorder columns for a nice output
     final_columns = [
-        'X_bary', 'Y_bary', 'Z_bary', 'Z_min', 'Z_max', 'R_max', 
-        'E_evt_pe', 'n_cluster'
+        'X_bary', 'Y_bary', 'Z_bary', 'X_min', 'X_max', 'Y_min', 'Y_max', 'Z_min', 'Z_max', 'R_max', 
+        'E_evt_mev', 'n_cluster', size_variable
     ]
     
     return soph_info_df[final_columns].reset_index()
     
 
-def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, ) -> pd.DataFrame:
+def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, event_level_cols: List[str], energy_column='E_hit_mev') -> pd.DataFrame:
     """
     Aggregates hit-level data to event/peak-level summary data.
     This df_soph should be the FINAL clean hits dataframe after spurious hits treatment.
@@ -425,13 +496,13 @@ def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, 
         return pd.DataFrame()
 
     # ----- Dorothea Info ----- #
-    doro_info_df = get_primary_pulse_info(df_doro)
+    doro_info_df = get_primary_pulse_info(df_doro, event_level_cols)
 
     # ----- Sophronia Info ----- #
     # Event-level
-    soph_event_info_df = summarize_hits_to_event_level(df_soph)
+    soph_event_info_df = summarize_hits_to_event_level(df_soph, energy_column=energy_column)
     # Peak-level
-    soph_peak_info_df = df_soph.groupby(['event', 'npeak']).agg(E_peak_pe = ('E_hit_pe', 'sum')).reset_index()
+    soph_peak_info_df = df_soph.groupby(['event', 'npeak']).agg(E_peak_mev=(energy_column, 'sum')).reset_index()
 
     # ----- Merge Final DataFrame ----- #
     df_file = pd.merge(soph_peak_info_df, soph_event_info_df, on='event', how='left')
