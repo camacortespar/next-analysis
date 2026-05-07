@@ -1,5 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""
+This script automates the pre-analysis workflow for simulation files in the NEXT experiment.
+It is mainly intended for processing background MC production, but it also can process bb2nu and bb0nu MC files.
+The script performs the following high-level steps:
+
+1. Input Parsing: Reads command-line arguments to determine the processing options.
+2. File Discovery: Identifies all relevant HDF5 files in the specified input directory.
+3. Data Processing: Processes each file, applying corrections, cuts, and clustering. See function `process_file` for details.
+4. Output Generation: Saves processed information into new HDF5 files in the specified output directory.
+5. Summary Update: Optionally updates a summary CSV file with isotope-level statistics.
+
+Usage:
+    python process_MC.py <process_type> <isotope>
+
+Notes:
+    In difference with data processing, this script only stores at event/peak level, not at hit level.
+"""
 
 # ============================================================================
 # ----- IMPORTS -----
@@ -13,7 +30,7 @@ from libs import crudo
 import argparse
 from datetime import datetime
 import glob
-from joblib import Parallel, delayed
+from joblib import delayed, Parallel
 import numpy as np
 import os
 import pandas as pd
@@ -23,31 +40,31 @@ from typing import Callable, List, Tuple
 # =============================================================================
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
 # =============================================================================
-DATE = datetime.now().strftime('%d%m%Y')        # Options: today or some day (e.g '02122025')
+DATE = datetime.now().strftime('%d%m%Y')    # It helps to keep track of when the files were processed
 
 # DIRECTORIES
-OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/mc/'
+OUTPUT_DIR  = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/mc/'
 SUMMARY_DIR = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/'
 
 # KEYS
 MC_CONFIG_KEY = '/MC/configuration'
 TRUE_INFO_KEY = '/MC/particles'
-DORO_KEY  = '/DST/Events'
-SOPH_KEY  = '/RECO/Events'
+DORO_KEY = '/DST/Events'
+SOPH_KEY = '/RECO/Events'
 
 # COLUMNS TO USE
 DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1w', 'S1h', 'S1e', 'S1t', 'S2w', 'S2h', 'S2e', 'S2q', 'S2t', 'DT', 'X', 'Y', 'Z']
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'Xpeak','X', 'Y', 'Z', 'Q', 'Ec']
 FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'E_hit_mev', 'cluster']
 
-EVENT_LEVEL_COLS = ['nS1', 'nS2', 'isotope', 'volume', 'pair_prod', 'old_event_size']
+EVENT_LEVEL_COLS = ['nS1', 'nS2', 'isotope', 'volume', 'double_e', 'old_n_hits']
 
-# CUT NAMES
+# CUTFLOW
 CUT_NAMES = ['Generated', 'Interacting', 'Saved', 'Reconstructed', 'Strong_S2', 'S1_Cut', 'Clean_Events']
 
-# ------------------------
-# 2. PROCESSING PARAMETERS
-# ------------------------
+# ---------------------
+# PROCESSING PARAMETERS
+# ---------------------
 V_DRIFT = 0.865     # Drift velocity in [mm/μs]
 
 # --- S1 Signal Cuts ---
@@ -82,7 +99,7 @@ def parse_arguments():
 
     parser.add_argument("isotope",
                         type=str,
-                        help="The isotope to process (e.g., 'Bi214', 'Co60', 'K40', 'Tl208' or 'Xe136').")
+                        help="The isotope to process (e.g., 'Bi214', 'Co60', 'K40', 'Tl208', 'Tl214' or 'Xe136').")
 
     # If no arguments are provided, print the help message and exit
     if len(sys.argv) == 1:
@@ -100,8 +117,35 @@ def parse_arguments():
 
 def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
     """
-    Processes a single Monte Carlo HDF5 file.
-    Reads data, applies cuts, aggregates, and returns results.
+    Processes a single file containing NEXT-100 MC reconstructed data, applying a series of cuts, 
+    corrections, and clustering to prepare the data for further analysis.
+
+    Parameters:
+    -----------
+        filepath : str
+            Path to the input HDF5 file containing Nexus, Dorothea and Sophronia information.
+        isotope : str
+            The isotope being processed (e.g., 'Bi214', 'Co60', etc.).
+        cut_names : list of str, optional
+            List of cut names to track the number of events passing each cut. Defaults to CUT_NAMES.
+
+    Returns:
+    --------
+        df_event_peak : pandas.DataFrame
+            Dataframe containing the processed data aggregated to the event-peak level.
+        local_evt_counter : dict
+            Dictionary containing the count of events passing each cut.
+
+    Notes:
+    ------
+    - The function performs the following steps:
+        1. Loads Dorothea and Sophronia data from the input file.
+        2. Extracts Monte Carlo information such as isotope, volume, and double-electron track flags.
+        3. Applies data cleaning, including removing weak S2 peaks and spurious hits.
+        4. Applies energy corrections and S1e cuts based on predefined parameters.
+        5. Aggregates the data to event-peak level for further analysis.
+    - If an error occurs during processing, the function returns an empty dataframe and a dictionary of zeros 
+      to ensure robustness.
     """
     filepath = Path(filepath)
     # print(f"→ Processing file: {filepath}")
@@ -125,13 +169,13 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
 
         # ----- Monte Carlo Information ----- #
         # Isotope and volume
-        # isotope = filepath.parts[-4]
         volume  = filepath.parts[-3]
-        df_doro['isotope'] = isotope
-        df_doro['volume']  = volume
-        # Pair creation flag
-        pair_prod_evt_ids = df_true[(df_true['creator_proc'] == 'conv') & (df_true['initial_volume'] == 'ACTIVE')].event_id.unique()
-        df_doro['pair_prod'] = df_doro['event'].isin(pair_prod_evt_ids)
+        df_doro['volume']   = volume
+        df_doro['isotope']  = isotope
+        df_doro['double_e'] = True
+        if isotope != 'Xe136':
+            pair_prod_evt_ids = df_true[(df_true['creator_proc'] == 'conv') & (df_true['initial_volume'] == 'ACTIVE')].event_id.unique()
+            df_doro['double_e'] = df_doro['event'].isin(pair_prod_evt_ids)
     
         # ----- Data Cleaning ----- #
         # Remove weak S2 peaks in Dorothea and Sophronia
@@ -153,10 +197,6 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         # S1e Correction
         df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
 
-        # # If there is no data left after cuts, return empty dataframes
-        # if df_sophronia.empty:
-        #     return {'processed_df': pd.DataFrame(), 'counts': counts}
-
         # ----- Deal with Spurious Hits ----- #
         df_clust_soph = CLUSTER_FUNCTION(df_soph)    # Applying hits_clusterizer
         df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='Ec', output_column='E_hit_mev')
@@ -166,12 +206,12 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
 
         # ----- Data @ Event/Peak-Level ----- #
         # First, store original event size from Sophronia into Dorothea dataframe
-        original_event_size_df = df_soph.groupby('event').size().rename('old_event_size').reset_index()
+        original_event_size_df = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
         df_doro = df_doro.merge(original_event_size_df, on='event', how='left')
         # Now, store just the relevant columns in final Sophronia dataframe
         df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
-        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final, event_level_cols=EVENT_LEVEL_COLS)
+        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final, event_level_cols=EVENT_LEVEL_COLS, energy_column='E_hit_mev')
 
     except Exception as e:
         print(f"   Failed to process file {filepath}. Error: {e}", file=sys.stderr)
@@ -201,11 +241,11 @@ def main():
 
     # Outputs
     output_filename = 'processed_mc_' + PROCESS_TYPE + '_'
-    if ISOTOPE != 'Xe136':  output_filename += ISOTOPE + '_' + DATE + '.h5'
+    if ISOTOPE != 'Xe136':  output_filename += ISOTOPE + '_'
     output_filename += DATE + '.h5'
     OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, output_filename)
     
-    summary_filename = 'summary_mc_' + PROCESS_TYPE + '_processed.csv'
+    summary_filename = 'summary_' + PROCESS_TYPE + '_processed.csv'
     SUMMARY_PATH = os.path.join(SUMMARY_DIR, summary_filename)
 
     # Files to process

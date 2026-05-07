@@ -247,7 +247,8 @@ def define_kr_normalization(
 def get_corr3d(
                     kr_fname    : str,
                     norm_method : NormMethod,
-                    xy_params   : dict = None
+                    xy_params   : dict = None,
+                    mev_units   : bool = False
                 ):
     """
     Generates a 3D correction function for energy calibration using a krypton map.
@@ -264,7 +265,12 @@ def get_corr3d(
     krmap = krmap.loc[~krmap['mu'].isna()]
     krmap = krmap.loc[krmap['mu'] > 0]
     dtxy_map = krmap.loc[:, ['dt', 'x', 'y']].values
-    norm = define_kr_normalization(krmap, norm_method, xy_params)
+    if mev_units:
+        norm = 0.04155  # Kr conversion factor from [pe] to [MeV]
+        print("Using fixed normalization for MeV units: ", norm)
+    else:
+        norm = define_kr_normalization(krmap, norm_method, xy_params)
+        
     
     def corr(dt, x, y):
         dtxy_input = np.stack([dt, x, y], axis=1)
@@ -299,7 +305,9 @@ def correct_energy_by_kr_map(
                                 df         : pd.DataFrame,
                                 kr_fname   : str,
                                 norm_method: NormMethod,
-                                city       : str = 'zemrude'
+                                city       : str = 'zemrude',
+                                mev_units  : bool = False,
+                                output_col : str = 'Ec'
                             ) -> pd.DataFrame:
     """
     Applies energy correction using a krypton map and time evolution correction.
@@ -319,12 +327,12 @@ def correct_energy_by_kr_map(
     """
     if city == 'zemrude':
         # Get 3D spatial correction function
-        corr3d_func = get_corr3d(kr_fname, norm_method=norm_method)
+        corr3d_func = get_corr3d(kr_fname, norm_method=norm_method, mev_units=mev_units)
         # Get time-dependent correction function
         corrt_func = get_corrt(kr_fname)
 
         # Apply corrections
-        df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
+        df[output_col] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
         # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
 
     elif city == 'icaros':
@@ -333,10 +341,10 @@ def correct_energy_by_kr_map(
         x_vals, y_vals, z_vals, t_vals = df.X.values, df.Y.values, df.Z.values, df.time.values
         
         df['corr_factor'] = corr_func(x_vals, y_vals, z_vals, t_vals)
-        df['E_corr_pe'] = df['E'] * df['corr_factor']
+        df[output_col] = df['E'] * df['corr_factor']
 
     # Replace NaN or negative corrected energy with 0
-    df['E_corr_pe'] = np.where(pd.notna(df['E_corr_pe']) & (df['E_corr_pe'] > 0), df['E_corr_pe'], 0)
+    df[output_col] = np.where(pd.notna(df[output_col]) & (df[output_col] > 0), df[output_col], 0)
 
     return df
 

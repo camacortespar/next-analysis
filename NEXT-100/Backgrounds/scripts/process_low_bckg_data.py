@@ -30,36 +30,31 @@ import argparse
 import csv
 import glob
 from invisible_cities.core.core_functions import in_range
-from invisible_cities.reco.corrections import read_maps, apply_all_correction
+from invisible_cities.reco.corrections import apply_all_correction, read_maps
 from invisible_cities.types.symbols import NormMethod
 from invisible_cities.types.symbols import NormStrategy
-from joblib import Parallel, delayed 
+from joblib import delayed, Parallel
 import numpy as np
 import os
 import pandas as pd
-from typing import List, Callable, Tuple
+from typing import Callable, List, Tuple
 
 # =============================================================================
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
 # =============================================================================
-
-# -----------------------------------------
-# 1. DIRECTORIES, PATHS, KEYS AND FILENAMES
-# -----------------------------------------
 # OUTPUT FILENAME TAG
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
-# Example tags: 'other', 'p2_nhit5', 'nhit5_Qthres7' (this is basically p1_nhit5)
-VERSION_TAG = 'p2_icaros'
+VERSION_TAG = 'p2_zemrude'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
 ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/2025/'
 OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
-# Runs information
+
 RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
-# Summary file
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'     # Choose your name
+
+SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'
 SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/', SUMMARY_FILENAME)
 
 # KEYS
@@ -71,12 +66,14 @@ DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1w', 'S1h', 'S1e', 'S1t', 'S2w'
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
 FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'E_hit_pe', 'cluster']
 
-# CUTFLOWS
+EVENT_LEVEL_COLS = ['nS1', 'nS2', 'old_n_hits']
+
+# CUTFLOW
 CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
 
-# ------------------------
-# 2. PROCESSING PARAMETERS
-# ------------------------
+# ---------------------
+# PROCESSING PARAMETERS
+# ---------------------
 V_DRIFT = 0.865     # Drift velocity in [mm/μs]
 
 # --- S1 Signal Cuts ---
@@ -85,6 +82,7 @@ M_NOPOLIKE = 0.17
 B_NOPOLIKE = -56
 
 # --- S1e Correction ---
+# Values from Radon analysis: S1e = m * DT + b
 DT_CATH = 1350              # Cathode temporal position in [μs]
 CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
@@ -139,6 +137,8 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
             Path to the input HDF5 file containing Dorothea and Sophronia data.
         kr_path : str
             Path to the Krypton map file used for energy corrections.
+        kr_city : str
+            The city corresponding to the Krypton map (e.g., 'icaros', 'zemrude') to apply the correct energy correction.   
         cut_names : list of str, optional
             List of cut names to track the number of events passing each cut. Defaults to CUT_NAMES.
     Returns:
@@ -184,7 +184,7 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
         local_evt_counter[cut_names[1]] = df_soph['event'].nunique()
 
         # ----- Energy Correction ----- #
-        df_soph = crudo.ef.correct_energy_by_kr_map(df_soph, kr_path, norm_method=NormMethod.median_anode, city=kr_city)
+        df_soph = crudo.ef.correct_energy_by_kr_map(df_soph, kr_path, norm_method=NormMethod.median_anode, city=kr_city, mev_units=False, output_col='Ec')
 
         # ----- S1e Cut & Correction ----- #
         # nS1 <= 1 (NO-Polike)
@@ -196,19 +196,19 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
 
         # ----- Deal with Spurious Hits ----- #
         df_clust_soph = CLUSTER_FUNCTION(df_soph)    # Applying hits_clusterizer
-        df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='E_corr_pe')
+        df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='Ec', output_column='E_hit_pe')    # Change when we use MeV units!!!
         clean_evt_ids = df_clean_soph['event'].unique()
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
         local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
 
         # ----- Data @ Event/Peak-Level ----- #
         # First, store original event size from Sophronia into Dorothea dataframe
-        original_event_size_df = df_soph.groupby('event').size().rename('reco_size').reset_index()
+        original_event_size_df = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
         df_doro = df_doro.merge(original_event_size_df, on='event', how='left')
         # Now, store just the relevant columns in final Sophronia dataframe
         df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
-        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final)
+        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final, event_level_cols=EVENT_LEVEL_COLS, energy_column='E_hit_pe')
         
     except Exception as e:
         print(f"   Failed to process file {filename}. Error: {e}", file=sys.stderr)
