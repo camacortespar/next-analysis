@@ -78,7 +78,7 @@ DT_CATH = 1350               # Cathode temporal position in [μs]
 CV_FIT  = [0.57, 796.53]     # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
-CLUSTERING_PARAMS = dict(eps = 3, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
+CLUSTERING_PARAMS = dict(eps = 1.8, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
 CLUSTER_FUNCTION = crudo.tf.hits_clusterizer(CLUSTERING_PARAMS)
 
 def parse_arguments():
@@ -94,7 +94,8 @@ def parse_arguments():
     # ----- Positional (Required) Arguments ----- #
     parser.add_argument("process_type",
                         type=str,
-                        choices=['radiogenics_hpr', 'radiogenics_lpr', 'bb2nu_hpr', 'bb2nu_lpr', 'bb0nu_hpr', 'bb0nu_lpr'],
+                        choices=['radiogenics_hpr', 'radiogenics_lpr', 'calibration_hpr', 'calibration_lpr',
+                                 'bb2nu_hpr', 'bb2nu_lpr', 'bb0nu_hpr', 'bb0nu_lpr'],
                         help="The type of MC process to analyze (e.g., 'radiogenics_hpr', 'bb2nu_hpr').")
 
     parser.add_argument("isotope",
@@ -254,6 +255,7 @@ def main():
 
     if PROCESS_TYPE == 'radiogenics_hpr': MC_DIR += 'Radiogenics/HPR/IC_v2.3.1/NEXUS_v7_10_01/'
     if PROCESS_TYPE == 'radiogenics_lpr': MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+    if PROCESS_TYPE == 'calibration_lpr': MC_DIR += 'Calibration/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
     if PROCESS_TYPE == 'bb2nu_hpr':       MC_DIR += 'bb2nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb2nu/'
     if PROCESS_TYPE == 'bb0nu_hpr':       MC_DIR += 'bb0nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb0nu/'
 

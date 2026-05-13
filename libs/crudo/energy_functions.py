@@ -267,7 +267,7 @@ def get_corr3d(
     dtxy_map = krmap.loc[:, ['dt', 'x', 'y']].values
     if mev_units:
         norm = 0.04155  # Kr conversion factor from [pe] to [MeV]
-        print("Using fixed normalization for MeV units: ", norm)
+        # print("Using fixed normalization for MeV units: ", norm)
     else:
         norm = define_kr_normalization(krmap, norm_method, xy_params)
         

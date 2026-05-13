@@ -11,10 +11,7 @@ It processes reconstructed data to prepare it for further analysis. The script p
 5. Summary Update: Optionally updates a summary CSV file with run-level statistics.
 
 Usage:
-    python process_HE_data.py <run_number> <ldc_number> <n_files> <kr_city> [--events-only]
-
-Options:
-    --events-only: If specified, only event-level data is saved, skipping hit-level data.
+    python process_HE_data.py <run_number> <ldc_number> <n_files> <kr_city>
 
 Note:
     Yes, this script is a mirror of the one used for low-background data processing, but adapted for the specific needs of high-energy calibration runs.
@@ -25,18 +22,19 @@ Note:
 # ============================================================================
 
 import sys
-sys.path.append('/lhome/ific/c/ccortesp/Analysis')
+sys.path.append('/home/shifter/ccortesp/')
 
-from libs import crudo
+from lib import crudo
 
 import argparse
 import csv
+import gc
 import glob
 from invisible_cities.core.core_functions import in_range
 from invisible_cities.reco.corrections import apply_all_correction, read_maps
 from invisible_cities.types.symbols import NormMethod
 from invisible_cities.types.symbols import NormStrategy
-from joblib import delayed, Parallel 
+from joblib import delayed, Parallel
 import numpy as np
 import os
 import pandas as pd
@@ -46,16 +44,15 @@ from typing import Callable, List, Tuple
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
 # =============================================================================
 # OUTPUT FILENAME TAG
-VERSION_TAG = 'th_zemrude'
+VERSION_TAG = 'LPR_p2'
 
 # DIRECTORIES, PATHS & FILES
-# DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Th_runs/'
-DATA_DIR   = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/runs/'
-ICAROS_DIR = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/h5/'
-OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Th_analysis/h5/runs/'
+DATA_DIR   = '/home/shifter/ccortesp/sophronia/he_calibration/'
+ICAROS_DIR = '/home/shifter/ccortesp/HE_processing/krmaps/'
+OUTPUT_DIR = '/home/shifter/ccortesp/HE_processing/output/'
 
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'
-SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/txt/summaries/', SUMMARY_FILENAME)
+SUMMARY_FILENAME = 'summary_LDC_' + VERSION_TAG + '.csv'
+SUMMARY_PATH = os.path.join('/home/shifter/ccortesp/HE_processing/txt/', SUMMARY_FILENAME)
 
 # KEYS
 DORO_KEY = 'DST/Events'
@@ -133,9 +130,9 @@ def parse_arguments():
     
     return args
 
-# =============================================================================
-# ----- PROCESSING -----
-# =============================================================================
+# # =============================================================================
+# # ----- PROCESSING -----
+# # =============================================================================
 
 def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     """
@@ -228,9 +225,18 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     except Exception as e:
         print(f"   Failed to process file {filename}. Error: {e}", file=sys.stderr)
         # Return a dictionary of zeros on failure to not affect the final sum
-        return pd.DataFrame(), pd.DataFrame(), {name: 0 for name in cut_names}
+        return pd.DataFrame(), {name: 0 for name in cut_names}
 
-    return df_event_peak, df_soph_final, local_evt_counter
+    finally:
+
+        to_delete = ['df_doro', 'df_soph', 'df_clust_soph', 'df_clean_soph', 'original_event_size_df', 'df_soph_final']
+        # Clean up memory
+        for var_name in to_delete:
+            if var_name in locals():
+                del locals()[var_name]
+        gc.collect()
+
+    return df_event_peak, local_evt_counter
 
 # =============================================================================
 # ----- MAIN -----
@@ -293,7 +299,9 @@ def main():
     print("------------------------------------")
 
     # 2. --- PARALLEL PROCESSING OF FILES
-    n_cores = os.cpu_count() - 1 if os.cpu_count() > 1 else 1
+    MAX_CORE_TO_USE = 10
+    n_cores = min(os.cpu_count() - 1 if os.cpu_count() > 1 else 1, MAX_CORE_TO_USE)
+    # n_cores = os.cpu_count() - 1 if os.cpu_count() > 1 else 1
     print(f"\n----- Starting parallel processing on {n_cores} cores")
 
     # The Parallel object manages the pool of worker processes.
@@ -304,16 +312,12 @@ def main():
     # 3. --- COMBINE RESULTS FROM ALL FILES
     print("\n----- Aggregating results")
     all_processed_dfs = []
-    all_sophronia_dfs = []
-    total_cut_counts = {name: 0 for name in CUT_NAMES}
+    total_cut_counts = {name: 0 for name in CUT_NAMES} 
 
     # Unpack the results (dataframes, counts dict)
-    for df_file, df_soph, local_counts in results:
-        if not df_file.empty and not df_soph.empty:
+    for df_file, local_counts in results:
+        if not df_file.empty:
             all_processed_dfs.append(df_file)
-            # Only keep hit-level data if --events-only flag is not set
-            if not args.events_only and not df_soph.empty:
-                all_sophronia_dfs.append(df_soph)
         for cut_name, count in local_counts.items():
             total_cut_counts[cut_name] += count
 
@@ -325,21 +329,12 @@ def main():
     # DEBUGGING: Check the contents of the lists before concatenation
     print(f"Event dataframe shape: {run_event_df.shape}")
 
-    if not args.events_only:
-        if all_sophronia_dfs:
-            run_sophronia_df = pd.concat(all_sophronia_dfs, ignore_index=True)
-        else:
-            run_sophronia_df = pd.DataFrame()
-        print(f"Hits dataframe shape: {run_sophronia_df.shape}")
-    else:
-        print("Hit-level data will NOT be saved due to --events-only flag. Skipping hit-level dataframe concatenation.")
-
     # 4. --- OUTPUT
     print("\n----- Saving output files")
     # npeak column in run_event_df is uint64, convert to int64
     for col in run_event_df.select_dtypes(include=['uint64']).columns:
         run_event_df[col] = run_event_df[col].astype('int64')
-    
+
     # Combine all processed dataframes into one
     output_filename = f"processed_run_{args.run_number}_ldc{args.ldc_number}_{VERSION_TAG}"
     if args.n_files.lower() != 'all':
@@ -354,31 +349,33 @@ def main():
         with pd.HDFStore(output_filepath, mode='w') as store:
             if not run_event_df.empty:
                 store.put('Events', run_event_df, format='table', data_columns=True)
-            if not args.events_only and not run_sophronia_df.empty:
-                store.put('Hits', run_sophronia_df, format='table', data_columns=True)
         print("HDF5 saving complete.")
     except Exception as e:
         print(f"   Error writing to HDF5 file: {e}", file=sys.stderr)
+    
+    print("\n----- Updating summary file")
+    summary_data = {
+                        'Run_ID': [args.run_number],
+                        'LDC': [args.ldc_number],
+                        'n_Files': [args.n_files.lower()]
+                    }
+    # Add the cut counts
+    for name in total_cut_counts.keys():
+        summary_data[name] = [total_cut_counts.get(name, 0)]
+    summary_row_df = pd.DataFrame(summary_data)
+    # Append to the CSV file
+    print(f"Appending summary to: {SUMMARY_PATH}")
+    try:
+        summary_row_df.to_csv(
+                                SUMMARY_PATH,
+                                mode='a',
+                                header=not os.path.exists(SUMMARY_PATH),
+                                index='Run_ID',
+                            )
+        print("Summary file updated.")
+    except IOError as e:
+        print(f"   Error writing to summary file: {e}", file=sys.stderr)
 
-    # Summary file: just when --events-only is set
-    if args.events_only:
-        print("\n----- Updating summary file")
-        summary_file_exists = os.path.isfile(SUMMARY_PATH)
-        header = ['run_number', 'ldc', 'n_files_processed'] + CUT_NAMES
-        data_row = [args.run_number, args.ldc_number, args.n_files.lower()] + [total_cut_counts[name] for name in CUT_NAMES]
-
-        try:
-            with open(SUMMARY_PATH, 'a', newline='') as f:
-                writer = csv.writer(f)
-                if not summary_file_exists:
-                    writer.writerow(header)
-                writer.writerow(data_row)
-            print(f"You can find the event summary in: {SUMMARY_PATH}")
-        except IOError as e:
-            print(f"   Error writing to summary file: {e}", file=sys.stderr)
-    else:
-        print("\n----- Skipping summary file update since --events-only flag is not set.")
-        
     print("\nY ya, eso es todo, eso es todo ♥")
 
 if __name__ == "__main__":

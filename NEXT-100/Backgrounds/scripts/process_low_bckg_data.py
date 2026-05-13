@@ -87,7 +87,7 @@ DT_CATH = 1350              # Cathode temporal position in [μs]
 CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
-CLUSTERING_PARAMS = dict(eps = 3, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
+CLUSTERING_PARAMS = dict(eps = 1.8, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
 CLUSTER_FUNCTION = crudo.tf.hits_clusterizer(CLUSTERING_PARAMS)
 
 def parse_arguments():
