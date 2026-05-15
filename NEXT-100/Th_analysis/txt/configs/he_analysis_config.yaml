@@ -1,0 +1,26 @@
+# ===================================================
+# Configuration for High-Energy (HE) Thorium Analysis
+#
+# NOTES:
+#   - HE scale values from '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/notebooks/0 - HE_Scale_Finder.ipynb'
+# ===================================================
+common:
+    input_dir   : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Th_analysis/h5/'
+    summary_dir : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/txt/summaries/'
+    evt_key     : 'Events'
+
+# Low Pressure Run (LPR) configurations
+LPR_p2:
+    data:
+        processed_file : 'merged_tagged_runs_LPR_p2.h5'
+        summary_file   : 'summary_LPR_p2_processed.csv'
+        he_scale :
+                    m : 0.952908
+                    b : 0.008638
+
+    mc:
+        processed_file : 'merged_tagged_mc_calibration_lpr.h5'
+        summary_file   : 'summary_calibration_lpr_processed.csv'
+        he_scale :
+                    m : 0.997849
+                    b : -0.000564

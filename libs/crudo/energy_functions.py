@@ -369,14 +369,13 @@ def correct_energy_by_kr_map(
 #     return df
 
 # ----- High Energy Functions ----- #
-def energy_pe_to_mev(  df: pd.DataFrame
-                     , slope: float
-                     , intercept: float
-                     , input_column:  str = 'E_evt_pe'
-                     , output_column: str = 'E_evt_mev' ) -> pd.DataFrame:
+def he_scale_converter( df            : pd.DataFrame
+                      , slope         : float
+                      , intercept     : float
+                      , input_column  : str = 'E_evt_mev'
+                      , output_column : str = 'E_final' ) -> pd.DataFrame:
     """
-    Converts energy from photoelectrons (pe) to mega-electronvolts (MeV).
-    Use a linear model conversion (for example, HE energy scale).
+    Converts energy using the linear model conversion of HE.
     """
     df[output_column] = slope * df[input_column] + intercept
     return df
