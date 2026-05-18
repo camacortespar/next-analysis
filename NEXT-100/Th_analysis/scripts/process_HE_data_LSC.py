@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-This script automates the pre-analysis workflow for high-energy data (238Th) in the NEXT experiment.
+This script automates the pre-analysis workflow for high-energy data (228Th) in the NEXT experiment.
 It processes reconstructed data to prepare it for further analysis. The script performs the following high-level steps:
 
 1. Input Parsing: Reads command-line arguments to determine the run number and processing options.
@@ -66,7 +66,7 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'E_hit_mev'
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'old_n_hits']
 
 # CUTFLOW
-CUT_NAMES = ['Reconstructed', 'Z_Positive', 'S1_Cut', 'Clean_Events']
+CUT_NAMES = ['IC', 'Z_Positive', 'S1_Cut', 'Clean_Events']
 
 # ---------------------
 # PROCESSING PARAMETERS
@@ -288,14 +288,14 @@ def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     # Print configuration summary
     print("\n----- Processing Configuration -----")
-    print(f"Run Number      : {args.run_number}")
-    print(f"LDC Number      : {args.ldc_number}")
-    print(f"Files to Process: {'All' if max_files_to_process is None else len(files_to_process)}")
-    print(f"Kr Map City     : {args.kr_city}")
-    print(f"Kr Map File     : {kr_file}")
+    print(f"Run Number       : {args.run_number}")
+    print(f"LDC Number       : {args.ldc_number}")
+    print(f"Files to Process : {'All' if max_files_to_process is None else len(files_to_process)}")
+    print(f"Kr Map City      : {args.kr_city}")
+    print(f"Kr Map File      : {kr_file}")
     print("------------------------------------")
-    print(f"Input Directory : {INPUT_DIR}")
-    print(f"Output Directory: {OUTPUT_DIR}")
+    print(f"Input Directory  : {INPUT_DIR}")
+    print(f"Output Directory : {OUTPUT_DIR}")
     print("------------------------------------")
 
     # 2. --- PARALLEL PROCESSING OF FILES

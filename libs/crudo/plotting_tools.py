@@ -1,11 +1,11 @@
-from   cycler import cycler                                         # type: ignore
-import matplotlib.pyplot as plt                                     # type: ignore
-from   matplotlib.colors import LinearSegmentedColormap             # type: ignore
-from   matplotlib.offsetbox import (OffsetImage, AnnotationBbox)    # type: ignore
-import numpy as np                                                  # type: ignore
-import pandas as pd                                                 # type: ignore
-from   PIL import Image                         # type: ignore
-
+from   cycler import cycler
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from   matplotlib.patches import Circle, Rectangle
+from   matplotlib.offsetbox import (OffsetImage, AnnotationBbox)
+import numpy as np
+import pandas as pd
+from   PIL import Image
 
 ##########################################
 # ----- NEXT Experiment Plot Style ----- #
@@ -82,7 +82,7 @@ Buffer_hei = 241      # Buffer gap [mm], same rad as drift region
 EL_rad = 1100 / 2      # In [mm]
 EL_hei = 9.7          # iN [mm]
 
-def plot_circle(RAD, LINESTYLE='-', col='black', label=None):
+def plot_circle(rad, linestyle='-', color='black', label=None):
     """
     Create a circle.
 
@@ -95,7 +95,7 @@ def plot_circle(RAD, LINESTYLE='-', col='black', label=None):
         matplotlib.patches.Circle: The circle object added to the axis.
     """
     # Create the circle
-    circ = plt.Circle((0, 0), RAD, color=col, fill=False, ls=LINESTYLE, label=label)
+    circ = plt.Circle((0, 0), rad, color=color, fill=False, ls=linestyle, lw=1.0, label=label)
 
     return circ
 
@@ -147,7 +147,7 @@ colors = [
 ]
 
 # Custom HSV Colormap
-custom_hsv = LinearSegmentedColormap.from_list("custom_hsv", colors)
+custom_hsv = mcolors.LinearSegmentedColormap.from_list("custom_hsv", colors)
 
 def plot_colormap(cmap, title="Colormap", figsize=(8, 2)):
     """
@@ -263,194 +263,197 @@ def hist_2D(x, y, x_bins=50, y_bins=50, wei=None):
 ##########################
 
 
-def event_display(
-                        data: pd.DataFrame,
-                        variable='E_corr',
-                        event_column='event',
-                        event=None
-                    ):
+def event_display( 
+                    data         : pd.DataFrame
+                  , variable     : str = 'E_corr'
+                  , event_column : str = 'event'
+                  , event        : int = None
+                 ):
     """
     Display event data with hit distributions in XY and YZ planes.
 
     Parameters:
-        data (pd.DataFrame): Input data containing event information.
-        variable (str): Column name for the variable to color the scatter plot. Default is 'E_corr'.
-        event_column (str): Column name for the event IDs. Default is 'event'.
-        event (int, optional): Specific event ID to plot. If None, a random event is chosen. Default is None.
+        data (pd.DataFrame)   : Input data containing event information.
+        variable (str)        : Column name for the variable to color the scatter plot. Default is 'E_corr'.
+        event_column (str)    : Column name for the event IDs. Default is 'event'.
+        event (int, optional) : Specific event ID to plot. If None, a random event is chosen. Default is None.
     """
-    # Check if the event column exists in the DataFrame
     if event_column not in data.columns:
-        raise ValueError(f"No column named '{event_column}' found in the DataFrame.")
+        raise ValueError(f"  No column named '{event_column}' found in the DataFrame.")
 
-    # Get unique event IDs for the slider/dropdown
     event_ids = sorted(data[event_column].unique())
 
-    # Define the plotting function that will be called by the widget
     def plot_event(evt_to_plot):
 
         # Select data for the chosen event
         event_data = data[data[event_column] == evt_to_plot]
 
-        # Determine the energy column name
-        if variable in data.columns:
-            q = event_data[variable]
-        else:
-            raise ValueError(f"No {variable} variable found in the DataFrame.")
+        if variable not in event_data.columns:
+            raise ValueError(f"  No '{variable}' variable found in the DataFrame.")
 
-        fig, axs = plt.subplots(1, 2, figsize=(14, 6))      # 1 row, 2 columns for subplots
+        q = event_data[variable]
+        # Setup color
+        q_valid = q.dropna()
+        if q_valid.empty or (q_valid <= 0).all():
+            print(f"  Warning: Event {evt_to_plot} has no positive '{variable}' values to plot. Displaying hits in a single color.")
+            plot_q = np.full(len(event_data), 1)
+            norm = mcolors.Normalize(vmin=0, vmax=1)
+            cbar_label = f'{variable} (No positive values)'
+            cmap = 'gray'
+        else:
+            plot_q = q.clip(lower=q_valid[q_valid > 0].min() * 0.1)
+            norm = mcolors.LogNorm(vmin=plot_q.min(), vmax=plot_q.max())
+            cbar_label = f'Log({variable})'
+            cmap = 'inferno'
+
+        fig, axs = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
+        # fig.patch.set_facecolor('white')
 
         # --- XY Plot (First Subplot) ---
-        scatter_xy = axs[0].scatter(event_data['X'], event_data['Y'], c=q, s=10, cmap='hsv', ec='none')
+        scatter_xy = axs[0].scatter(event_data['X'], event_data['Y'], c=plot_q, s=15, cmap=cmap, norm=norm, ec='none')
         axs[0].set_title(f'Back View')
         axs[0].set_xlabel('X [mm]')
         axs[0].set_ylabel('Y [mm]')
-        axs[0].grid(True)
-        axs[0].add_patch(plot_circle(N100_rad, col='black', label='NEXT-100 Radius'))
+        axs[0].set_xlim(-N100_rad*1.25, N100_rad*1.25)
+        axs[0].set_ylim(-N100_rad*1.25, N100_rad*1.25)        
+        axs[0].set_aspect('equal')
+        axs[0].add_patch(Circle((0, 0), N100_rad, color='black', fill=False, lw=1.5, label='NEXT-100 Radius'))
         axs[0].set_facecolor('whitesmoke')
-        axs[0].axis('equal') # Ensure aspect ratio is equal for a proper spatial view
+        axs[0].grid(True)
 
         # --- YZ Plot (Second Subplot) ---
-        scatter_yz = axs[1].scatter(event_data['Z'], event_data['Y'],  c=q, s=10, cmap='hsv', ec='none')
+        scatter_yz = axs[1].scatter(event_data['Z'], event_data['Y'], c=plot_q, s=15, cmap=cmap, norm=norm, ec='none')
         axs[1].set_title(f'Side View')
         axs[1].set_xlabel('Z [mm]')
-        axs[1].set_ylabel('Y [mm]')
         # Add rectangle representing the NEXT-100 detector dimensions
         rect = plt.Rectangle((0, -N100_rad), N100_hei, 2*N100_rad,
-                             edgecolor='black', facecolor='none', linestyle='-', label='NEXT-100 Volume')
+                             ec='black', fc='none', ls='-', lw=1.0, label='NEXT-100 Volume')
         axs[1].add_patch(rect)
-        axs[1].grid(True)
-        axs[1].axis('equal')
         axs[1].set_facecolor('whitesmoke')
+        axs[1].grid(True)
 
-        # Y limits
-        axs[0].set_ylim(-500, 500)
-        
-        plt.suptitle(f"Hit Distributions for Event: {evt_to_plot}", fontsize=15)
-        plt.tight_layout()
+        # Global adjustments
+        plt.suptitle(f"Hit Distributions for Event: {evt_to_plot}", y=0.92, fontsize=20)
+        plt.tight_layout(rect=[0, 0, 0.9, 1.0])
+        cbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.55])
+        cbar = fig.colorbar(scatter_xy, cax=cbar_ax)
+        cbar.set_label(cbar_label)
         plt.show()
 
     if event is not None:
-        plot_event(event)       # If a specific event is provided, plot it directly
+        plot_event(event)   # If a specific event is provided, plot it directly
     else:
         plot_event(np.random.choice(event_ids))
 
-# Event display for clustered hits -> ESTO MERECE SER MEJORADO
+# Event display for clustered hits
 # Source:  https://github.com/SamueleTorelli/ASpirit/blob/main/src/HE_plot_functions.py
-def display_event_cluster(data, variable='E_corr_pe', event_column='event', event=None):
-
-    # Check if the event column exists in the DataFrame
+def display_event_cluster(
+                            data         : pd.DataFrame
+                          , variable     : str = 'E_corr_pe'
+                          , event_column : str = 'event'
+                          , event        : int = None
+                         ):
     if event_column not in data.columns:
         raise ValueError(f"No column named '{event_column}' found in the DataFrame.")
 
     if event is not None:
         df_reco_event = data[data[event_column] == event]
     else:
-        # Get unique event IDs for the slider/dropdown
-        event_ids = sorted(data[event_column].unique())
-        random_event = np.random.choice(event_ids)
-        df_reco_event = data[data[event_column] == random_event]
-
-    # # Event ID
-    # evt_id = df_reco_event['event'].iloc[0] if 'event' in df_reco_event.columns else 'Unknown Event'
-
-    color_sequence = ("k", "m", "g", "b", "r",
-                    "gray", "aqua", "gold", "lime", "purple",
-                    "brown", "lawngreen", "tomato", "lightgray", "lightpink")
+        event_ids = data[event_column].unique()
+        event = np.random.choice(event_ids)
+        df_reco_event = data[data[event_column] == event]
 
     # Group total energy for coloring
     df_grouped_xy = df_reco_event.groupby(['X', 'Y'], as_index=False)[variable].sum()
     df_grouped_zy = df_reco_event.groupby(['Z', 'Y'], as_index=False)[variable].sum()
     df_grouped_xz = df_reco_event.groupby(['X', 'Z'], as_index=False)[variable].sum()
     
-    # Group by cluster (includes Scattered)
+    # Group by cluster (includes scattered)
     df_clustered_xy = df_reco_event.groupby(['X', 'Y', 'cluster'], as_index=False)[variable].sum()
     df_clustered_zy = df_reco_event.groupby(['Z', 'Y', 'cluster'], as_index=False)[variable].sum()
     df_clustered_xz = df_reco_event.groupby(['X', 'Z', 'cluster'], as_index=False)[variable].sum()
     
-    # Create 3x2 plot
-    fig, axes = plt.subplots(3, 2, figsize=(30, 30), dpi=180)
+    color_sequence = ("k", "m", "g", "b", "r",
+                      "gray", "aqua", "gold", "lime", "purple",
+                      "brown", "lawngreen", "tomato", "lightgray", "lightpink")
+
+    fig, axes = plt.subplots(3, 2, figsize=(16, 21), sharex='row', sharey='row')
     
     # --- TOP LEFT: All hits X vs Y ---
-    sc0 = axes[0, 0].scatter(df_grouped_xy['X'], df_grouped_xy['Y'], c=df_grouped_xy[variable],
-                             cmap='jet', s=30, marker='o')
-    axes[0, 0].set_title("All Hits: Q vs X,Y")
+    sc0 = axes[0, 0].scatter(df_grouped_xy['X'], df_grouped_xy['Y'], c=df_grouped_xy[variable], cmap='jet', s=15, ec='none')
+    axes[0, 0].set_title("Back View")
     axes[0, 0].set_xlabel("X [mm]")
     axes[0, 0].set_ylabel("Y [mm]")
-    axes[0, 0].set_xlim(-500, 500)
-    axes[0, 0].set_ylim(-500, 500)
-    axes[0, 0].set_aspect('equal')
-    axes[0, 0].grid()
+    axes[0, 0].set_xlim(-N100_rad*1.25, N100_rad*1.25)
+    axes[0, 0].set_ylim(-N100_rad*1.25, N100_rad*1.25)
+    axes[0, 0].set_aspect('equal', adjustable='box')
+    axes[0, 0].add_patch(Circle((0, 0), N100_rad, color='black', fill=False, lw=1.5, label='NEXT-100 Radius'))
     axes[0, 0].set_facecolor("whitesmoke")
-    fig.colorbar(sc0, ax=axes[0, 0], label="Total Q")
+    axes[0, 0].grid(True)
+    fig.colorbar(sc0, ax=axes[0, 0], label=f"Total {variable}")
     
     # --- TOP RIGHT: Clustered hits X vs Y ---
     for cl in sorted(df_clustered_xy['cluster'].unique()):
         cluster_df = df_clustered_xy[df_clustered_xy['cluster'] == cl]
         color = color_sequence[-3] if cl == -1 else color_sequence[cl]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
-        axes[0, 1].scatter(cluster_df['X'], cluster_df['Y'], s=30, marker='o', label=label, c=color)
-    axes[0, 1].set_title("Clustered Hits: Q vs X,Y")
+        axes[0, 1].scatter(cluster_df['X'], cluster_df['Y'], s=15, ec='none', label=label, c=color)
+    axes[0, 1].set_title("Clustered Hits")
     axes[0, 1].set_xlabel("X [mm]")
     axes[0, 1].set_ylabel("Y [mm]")
-    axes[0, 1].set_xlim(-500, 500)
-    axes[0, 1].set_ylim(-500, 500)
-    axes[0, 1].set_aspect('equal')
+    axes[0, 1].set_xlim(-N100_rad*1.25, N100_rad*1.25)
+    axes[0, 1].set_ylim(-N100_rad*1.25, N100_rad*1.25)
+    axes[0, 1].set_aspect('equal', adjustable='box')
+    axes[0, 1].add_patch(Circle((0, 0), N100_rad, color='red', fill=False, lw=1.5, label='NEXT-100 Radius'))
     axes[0, 1].set_facecolor("whitesmoke")
-    circle = plt.Circle((0, 0), N100_rad, color='r', fill=False, label='NEXT-100 limit')
-    axes[0, 1].add_patch(circle)
-    axes[0, 1].grid()
-    axes[0, 1].legend(markerscale=2, fontsize='small')
+    axes[0, 1].grid(True)
+    axes[0, 1].legend(loc='upper right', markerscale=1.5, fontsize=8, facecolor='none', edgecolor='none')
     
     # --- MIDDLE LEFT: All hits Z vs Y ---
-    sc2 = axes[1, 0].scatter(df_grouped_zy['Z'], df_grouped_zy['Y'], c=df_grouped_zy[variable],
-                             cmap='jet', s=30, marker='o')
-    axes[1, 0].set_title("(Side view) All Hits: Q vs Z,Y")
+    sc2 = axes[1, 0].scatter(df_grouped_zy['Z'], df_grouped_zy['Y'], c=df_grouped_zy[variable], cmap='jet', s=15, ec='none')
+    axes[1, 0].set_title("Side View")
     axes[1, 0].set_xlabel("Z [mm]")
     axes[1, 0].set_ylabel("Y [mm]")
-    axes[1, 0].set_ylim(-500, 500)
+    axes[1, 0].set_ylim(-N100_rad*1.25, N100_rad*1.25)
     axes[1, 0].set_facecolor("whitesmoke")
-    axes[1, 0].grid()
-    fig.colorbar(sc2, ax=axes[1, 0], label="Total Q")
+    axes[1, 0].grid(True)
+    fig.colorbar(sc2, ax=axes[1, 0], label=f"Total {variable}")
     
     # --- MIDDLE RIGHT: Clustered hits Z vs Y ---
     for cl in sorted(df_clustered_zy['cluster'].unique()):
         cluster_df = df_clustered_zy[df_clustered_zy['cluster'] == cl]
         color = color_sequence[-3] if cl == -1 else color_sequence[cl]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
-        axes[1, 1].scatter(cluster_df['Z'], cluster_df['Y'], s=30, marker='o', label=label, c=color)
-    axes[1, 1].set_title("Clustered Hits: Q vs Z,Y")
+        axes[1, 1].scatter(cluster_df['Z'], cluster_df['Y'], s=15, ec='none', label=label, c=color)
     axes[1, 1].set_xlabel("Z [mm]")
     axes[1, 1].set_ylabel("Y [mm]")
-    axes[1, 1].set_ylim(-500, 500)
     axes[1, 1].set_facecolor("whitesmoke")
-    axes[1, 1].grid()
-    axes[1, 1].legend(markerscale=2, fontsize='small')
+    axes[1, 1].grid(True)
+    axes[1, 1].legend(loc='best', markerscale=1.5, fontsize=12, facecolor='none', edgecolor='none')
     
     # --- BOTTOM LEFT: All hits X vs Z ---
-    sc4 = axes[2, 0].scatter(df_grouped_xz['Z'], df_grouped_xz['X'], c=df_grouped_xz[variable],
-                             cmap='jet', s=30, marker='o')
-    axes[2, 0].set_title("(Top view) All Hits: Q vs X,Z")
+    sc4 = axes[2, 0].scatter(df_grouped_xz['Z'], df_grouped_xz['X'], c=df_grouped_xz[variable],  cmap='jet', s=15, ec='none')
+    axes[2, 0].set_title("Top View")
     axes[2, 0].set_xlabel("Z [mm]")
     axes[2, 0].set_ylabel("X [mm]")
-    axes[2, 0].set_ylim(-500, 500)
+    axes[2, 0].set_ylim(-N100_rad*1.25, N100_rad*1.25)
     axes[2, 0].set_facecolor("whitesmoke")
-    axes[2, 0].grid()
-    fig.colorbar(sc4, ax=axes[2, 0], label="Total Q")
+    axes[2, 0].grid(True)
+    fig.colorbar(sc4, ax=axes[2, 0], label=f"Total {variable}")
     
     # --- BOTTOM RIGHT: Clustered hits X vs Z ---
     for cl in sorted(df_clustered_xz['cluster'].unique()):
         cluster_df = df_clustered_xz[df_clustered_xz['cluster'] == cl]
         color = color_sequence[-3] if cl == -1 else color_sequence[cl]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
-        axes[2, 1].scatter(cluster_df['Z'],cluster_df['X'], s=30, marker='o', label=label, c=color)
-    axes[2, 1].set_title("Clustered Hits: Q vs X,Z")
+        axes[2, 1].scatter(cluster_df['Z'],cluster_df['X'], s=15, ec='none', label=label, c=color)
     axes[2, 1].set_xlabel("Z [mm]")
     axes[2, 1].set_ylabel("X [mm]")
-    #axes[2, 1].set_xlim(-500, 500)
-    axes[2, 1].set_ylim(-500, 500)
     axes[2, 1].set_facecolor("whitesmoke")
-    axes[2, 1].grid()
-    axes[2, 1].legend(markerscale=2, fontsize='small')
+    axes[2, 1].grid(True)
+    axes[2, 1].legend(loc='best', markerscale=1.5, fontsize=12, facecolor='none', edgecolor='none')
     
-    plt.tight_layout()
+    # Global adjustments
+    plt.suptitle(f"Hit Distributions for Event: {event}", y=0.92, fontsize=20)
+    plt.tight_layout(rect=[0, 0, 0.95, 0.95])
     plt.show()
