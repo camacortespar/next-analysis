@@ -60,7 +60,7 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'E_hit_mev', 'clu
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'isotope', 'volume', 'double_e', 'old_n_hits']
 
 # CUTFLOW
-CUT_NAMES = ['Generated', 'Interacting', 'Saved', 'Reconstructed', 'Strong_S2', 'S1_Cut', 'Clean_Events']
+CUT_NAMES = ['Generated', 'Interacting', 'Saved', 'Sophronia', 'Clean', 'Strong_S2', 'S1_Cut']
 
 # ---------------------
 # PROCESSING PARAMETERS
@@ -160,6 +160,9 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         df_true  = pd.read_hdf(filepath, key=TRUE_INFO_KEY)
         df_doro  = pd.read_hdf(filepath, key=DORO_KEY).loc[:, DORO_COLUMNS]
         df_soph  = pd.read_hdf(filepath, key=SOPH_KEY).loc[:, SOPH_COLUMNS]
+        # First, store original event size from Sophronia into Dorothea dataframe
+        df_og_evt_size = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
+        df_doro = df_doro.merge(df_og_evt_size, on='event', how='left')
     
         # Counters
         mc_config = df_nexus.set_index('param_key')['param_value']
@@ -177,6 +180,13 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         if isotope != 'Xe136':
             pair_prod_evt_ids = df_true[(df_true['creator_proc'] == 'conv') & (df_true['initial_volume'] == 'ACTIVE')].event_id.unique()
             df_doro['double_e'] = df_doro['event'].isin(pair_prod_evt_ids)
+
+        # ----- Deal with Spurious Hits ----- #
+        df_soph = CLUSTER_FUNCTION(df_soph)
+        df_soph = crudo.tf.deal_spurious_hits(df_soph, energy_column='Ec', output_column='E_hit_mev')
+        clean_evt_ids = df_soph['event'].unique()
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
+        local_evt_counter[cut_names[4]] = len(clean_evt_ids)
     
         # ----- Data Cleaning ----- #
         # Remove weak S2 peaks in Dorothea and Sophronia
@@ -184,35 +194,25 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         df_soph = df_soph[df_soph['Xpeak'] >= -5000].copy()
         events_with_strong_S2_in_soph = df_soph['event'].unique()
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=events_with_strong_S2_in_soph)
-        local_evt_counter[cut_names[4]] = df_soph['event'].nunique()
+        local_evt_counter[cut_names[5]] = df_soph['event'].nunique()
 
         # ----- Energy Correction ----- #
         # Just set hits with NaN or negative energy to 0
-        df_soph['Ec'] = np.where(pd.notna(df_soph['Ec']) & (df_soph['Ec'] > 0), df_soph['Ec'], 0)
+        df_soph['E_hit_mev'] = np.where(pd.notna(df_soph['E_hit_mev']) & (df_soph['E_hit_mev'] > 0), df_soph['E_hit_mev'], 0)
 
         # ----- S1e Cut & Correction ----- #
         # nS1 <= 1 (NO-Polike)
         s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        local_evt_counter[cut_names[5]] = df_soph['event'].nunique()
+        local_evt_counter[cut_names[6]] = df_soph['event'].nunique()
         # S1e Correction
         df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
 
-        # ----- Deal with Spurious Hits ----- #
-        df_clust_soph = CLUSTER_FUNCTION(df_soph)    # Applying hits_clusterizer
-        df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='Ec', output_column='E_hit_mev')
-        clean_evt_ids = df_clean_soph['event'].unique()
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
-        local_evt_counter[cut_names[6]] = df_soph['event'].nunique()
-
         # ----- Data @ Event/Peak-Level ----- #
-        # First, store original event size from Sophronia into Dorothea dataframe
-        original_event_size_df = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
-        df_doro = df_doro.merge(original_event_size_df, on='event', how='left')
         # Now, store just the relevant columns in final Sophronia dataframe
-        df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
+        df_soph = df_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
-        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final, event_level_cols=EVENT_LEVEL_COLS, energy_column='E_hit_mev')
+        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph, event_level_cols=EVENT_LEVEL_COLS, energy_column='E_hit_mev')
 
     except Exception as e:
         print(f"   Failed to process file {filepath}. Error: {e}", file=sys.stderr)

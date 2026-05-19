@@ -61,12 +61,12 @@ SOPH_KEY = 'RECO/Events'
 # COLUMNS TO USE
 DORO_COLUMNS = ['event', 'time', 'nS1', 'nS2', 'S1w', 'S1h', 'S1e', 'S1t', 'S2w', 'S2h', 'S2e', 'S2q', 'S2t', 'DT', 'X', 'Y', 'Z']
 SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'Q', 'E']
-FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'E_hit_mev', 'cluster']
+FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Ec', 'cluster']
 
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'old_n_hits']
 
 # CUTFLOW
-CUT_NAMES = ['IC', 'Z_Positive', 'S1_Cut', 'Clean_Events']
+CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive', 'S1_Cut']
 
 # ---------------------
 # PROCESSING PARAMETERS
@@ -178,49 +178,49 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
         # ----- Load Dorothea & Sophronia ----- #
         df_doro = pd.read_hdf(filepath, key=DORO_KEY).loc[:, DORO_COLUMNS]
         df_soph = pd.read_hdf(filepath, key=SOPH_KEY).loc[:, SOPH_COLUMNS]
+        # First, store original event size from Sophronia into Dorothea dataframe
+        df_og_evt_size = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
+        df_doro = df_doro.merge(df_og_evt_size, on='event', how='left')
         # Compute Z in [mm]
-        df_soph.rename(columns={'Z': 'DT'}, inplace=True)                       # Rename Z to DT for consistency
-        df_soph['Z'] = df_soph['DT'] * V_DRIFT                                  # Compute real Z position: using the drift velocity
-        reco_ids = df_soph['event'].unique()
-        local_evt_counter[cut_names[0]] = len(reco_ids)
+        df_soph.rename(columns={'Z': 'DT'}, inplace=True)   # Rename Z to DT for consistency
+        df_soph['Z'] = df_soph['DT'] * V_DRIFT              # Compute real Z position: using the drift velocity
+        local_evt_counter[cut_names[0]] = df_soph['event'].nunique()
+
+        # ----- Deal with Spurious Hits ----- #
+        df_soph = CLUSTER_FUNCTION(df_soph)
+        df_soph = crudo.tf.deal_spurious_hits(df_soph, energy_column='E', output_column='E_hit_pe')
+        clean_evt_ids = df_soph['event'].unique()
+        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
+        local_evt_counter[cut_names[1]] = len(clean_evt_ids)
 
         # ----- Removing Z <= 0 ----- #
         events_with_negative_z_hits = df_soph.loc[df_soph['Z'] < 0, 'event'].unique()
-        events_with_positive_z_hits = np.setdiff1d(reco_ids, events_with_negative_z_hits)
+        events_with_positive_z_hits = np.setdiff1d(clean_evt_ids, events_with_negative_z_hits)
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=events_with_positive_z_hits)
-        local_evt_counter[cut_names[1]] = df_soph['event'].nunique()
+        local_evt_counter[cut_names[2]] = len(events_with_positive_z_hits)
 
         # ----- Energy Correction ----- #
         df_soph = crudo.ef.correct_energy_by_kr_map( df_soph
                                                    , kr_path
-                                                   , norm_method=NormMethod.median_anode
-                                                   , city=kr_city
-                                                   , mev_units=True
-                                                   , output_col='Ec' )
+                                                   , norm_method = NormMethod.median_anode
+                                                   , city = kr_city
+                                                   , mev_units = True
+                                                   , energy_col = 'E_hit_pe'
+                                                   , output_col ='Ec' )
 
         # ----- S1e Cut & Correction ----- #
         # nS1 <= 1 (NO-Polike)
         s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
         df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        local_evt_counter[cut_names[2]] = df_soph['event'].nunique()
+        local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
         # S1e Correction
         df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
 
-        # ----- Deal with Spurious Hits ----- #
-        df_clust_soph = CLUSTER_FUNCTION(df_soph)
-        df_clean_soph = crudo.tf.deal_spurious_hits(df_clust_soph, energy_column='Ec', output_column='E_hit_mev')
-        clean_evt_ids = df_clean_soph['event'].unique()
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, event_ids=clean_evt_ids) 
-        local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
-
         # ----- Data @ Event/Peak-Level ----- #
-        # First, store original event size from Sophronia into Dorothea dataframe
-        original_event_size_df = df_soph.groupby('event').size().rename('old_n_hits').reset_index()
-        df_doro = df_doro.merge(original_event_size_df, on='event', how='left')
         # Now, store just the relevant columns in final Sophronia dataframe
-        df_soph_final = df_clean_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
+        df_soph = df_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
         # Finally, aggregate to event-peak level
-        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph_final, event_level_cols=EVENT_LEVEL_COLS, energy_column='E_hit_mev')
+        df_event_peak = crudo.dm.aggregate_to_event_peak_level(df_doro, df_soph, event_level_cols=EVENT_LEVEL_COLS, energy_column='Ec')
         
     except Exception as e:
         print(f"   Failed to process file {filename}. Error: {e}", file=sys.stderr)
@@ -228,8 +228,7 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
         return pd.DataFrame(), {name: 0 for name in cut_names}
 
     finally:
-
-        to_delete = ['df_doro', 'df_soph', 'df_clust_soph', 'df_clean_soph', 'original_event_size_df', 'df_soph_final']
+        to_delete = ['df_doro', 'df_soph', 'df_og_evt_size']
         # Clean up memory
         for var_name in to_delete:
             if var_name in locals():
@@ -355,8 +354,8 @@ def main():
     
     print("\n----- Updating summary file")
     summary_data = {
-                        'Run_ID': [args.run_number],
-                        'LDC': [args.ldc_number],
+                        'Run_ID' : [args.run_number],
+                        'LDC'    : [args.ldc_number],
                         'n_Files': [args.n_files.lower()]
                     }
     # Add the cut counts

@@ -456,10 +456,10 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame, energy_column='E_hit_me
                         'X_min', 'X_max', 'Y_min', 'Y_max', 'Z_min', 'Z_max', 'R_max'
                     ]
     soph_info_df = soph_info_df[final_columns].reset_index()
-    if energy_column == 'E_hit_pe':
-        soph_info_df = soph_info_df.rename(columns={'E_evt': 'E_evt_pe'})
-    elif energy_column == 'E_hit_mev':
-        soph_info_df = soph_info_df.rename(columns={'E_evt': 'E_evt_mev'})
+    # if energy_column == 'E_hit_pe':
+    #     soph_info_df = soph_info_df.rename(columns={'E_evt': 'E_evt_pe'})
+    # elif energy_column == 'E_hit_mev':
+    #     soph_info_df = soph_info_df.rename(columns={'E_evt': 'E_evt_mev'})
     
     return soph_info_df
     

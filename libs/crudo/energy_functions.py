@@ -302,12 +302,13 @@ def get_corrt(kr_fname, variable='s2e', n=4):
     return time_correction
 
 def correct_energy_by_kr_map(
-                                df         : pd.DataFrame,
-                                kr_fname   : str,
-                                norm_method: NormMethod,
-                                city       : str = 'zemrude',
-                                mev_units  : bool = False,
-                                output_col : str = 'Ec'
+                                df          : pd.DataFrame,
+                                kr_fname    : str,
+                                norm_method : NormMethod,
+                                city        : str = 'zemrude',
+                                mev_units   : bool = False,
+                                energy_col  : str = 'E',
+                                output_col  : str = 'Ec'
                             ) -> pd.DataFrame:
     """
     Applies energy correction using a krypton map and time evolution correction.
@@ -332,8 +333,8 @@ def correct_energy_by_kr_map(
         corrt_func = get_corrt(kr_fname)
 
         # Apply corrections
-        df[output_col] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
-        # df['E_corr_pe'] = df['E'] * corr3d_func(df['DT'], df['X'], df['Y'])
+        df[output_col] = df[energy_col] * corr3d_func(df['DT'], df['X'], df['Y']) * corrt_func(df['time'])
+        # df['E_corr_pe'] = df[energy_col] * corr3d_func(df['DT'], df['X'], df['Y'])
 
     elif city == 'icaros':
         cmap = read_maps(kr_fname)
@@ -341,7 +342,7 @@ def correct_energy_by_kr_map(
         x_vals, y_vals, z_vals, t_vals = df.X.values, df.Y.values, df.Z.values, df.time.values
         
         df['corr_factor'] = corr_func(x_vals, y_vals, z_vals, t_vals)
-        df[output_col] = df['E'] * df['corr_factor']
+        df[output_col] = df[energy_col] * df['corr_factor']
 
     # Replace NaN or negative corrected energy with 0
     df[output_col] = np.where(pd.notna(df[output_col]) & (df[output_col] > 0), df[output_col], 0)

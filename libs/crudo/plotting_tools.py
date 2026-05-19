@@ -294,7 +294,13 @@ def event_display(
         q = event_data[variable]
         # Setup color
         q_valid = q.dropna()
-        if q_valid.empty or (q_valid <= 0).all():
+        if q_valid.empty:
+            print(f"  Warning: Event {evt_to_plot} does not exist in dataframe. ")
+            plot_q = np.full(len(event_data), 1)
+            norm = mcolors.Normalize(vmin=0, vmax=1)
+            cbar_label = f'{variable} (No data)'
+            cmap = 'gray'
+        elif (q_valid <= 0).all():
             print(f"  Warning: Event {evt_to_plot} has no positive '{variable}' values to plot. Displaying hits in a single color.")
             plot_q = np.full(len(event_data), 1)
             norm = mcolors.Normalize(vmin=0, vmax=1)
@@ -335,7 +341,7 @@ def event_display(
         # Global adjustments
         plt.suptitle(f"Hit Distributions for Event: {evt_to_plot}", y=0.92, fontsize=20)
         plt.tight_layout(rect=[0, 0, 0.9, 1.0])
-        cbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.55])
+        cbar_ax = fig.add_axes([0.9, 0.2, 0.01, 0.55])
         cbar = fig.colorbar(scatter_xy, cax=cbar_ax)
         cbar.set_label(cbar_label)
         plt.show()

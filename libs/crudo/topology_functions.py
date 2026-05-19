@@ -208,10 +208,10 @@ def deal_spurious_hits(df_hits: pd.DataFrame, energy_column='E_corr_pe', output_
         non_isolated_hits_df = non_isolated_hits_df.merge(energy_to_add, on='event', how='left')
         non_isolated_hits_df['E_iso_to_add'].fillna(0, inplace=True)
         # Calculate the total energy of the main track for proportional scaling
-        total_non_iso_energy = non_isolated_hits_df.groupby('event')[ energy_column].transform('sum').replace(0, 1)
+        total_non_iso_energy = non_isolated_hits_df.groupby('event')[energy_column].transform('sum').replace(0, 1)
         # Redistribution formula
         non_isolated_hits_df[output_column] = (non_isolated_hits_df[energy_column] + 
-                                           (non_isolated_hits_df[energy_column] / total_non_iso_energy) * non_isolated_hits_df['E_iso_to_add'])
+                                              (non_isolated_hits_df[energy_column] / total_non_iso_energy) * non_isolated_hits_df['E_iso_to_add'])
     else:
         non_isolated_hits_df[output_column] = non_isolated_hits_df[energy_column]
 
