@@ -246,7 +246,7 @@ def main():
     output_filename += DATE + '.h5'
     OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, output_filename)
     
-    summary_filename = 'summary_' + PROCESS_TYPE + '_processed.csv'
+    summary_filename = 'summary_' + PROCESS_TYPE + '_' + DATE + '_processed.csv'
     SUMMARY_PATH = os.path.join(SUMMARY_DIR, summary_filename)
 
     # Files to process

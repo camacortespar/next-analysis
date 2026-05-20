@@ -310,7 +310,7 @@ def event_display(
             plot_q = q.clip(lower=q_valid[q_valid > 0].min() * 0.1)
             norm = mcolors.LogNorm(vmin=plot_q.min(), vmax=plot_q.max())
             cbar_label = f'Log({variable})'
-            cmap = 'inferno'
+            cmap = custom_hsv
 
         fig, axs = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
         # fig.patch.set_facecolor('white')

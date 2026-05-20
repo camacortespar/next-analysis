@@ -42,3 +42,12 @@ Dataframe merged successfully:
   Corrected Time = 3485614.5338 s
 Dataframe merged successfully:
   Total processed events: 939946
+
+---------------------------------------------------
+
+20/05/2026: NEW STRUCTURE OF PROCESSING, START WITH DBSCAN
+
+For period 2 with condition 'castle_closed_RAS':
+  Corrected Time = 3485614.5338 s
+Dataframe merged successfully:
+  Total processed events: 1017964
