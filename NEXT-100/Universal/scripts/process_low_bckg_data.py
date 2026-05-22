@@ -45,7 +45,7 @@ from typing import Callable, List, Tuple
 # OUTPUT FILENAME TAG
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
-VERSION_TAG = 'p2_zemrude_v2'
+VERSION_TAG = 'p2_icaros_v2'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'

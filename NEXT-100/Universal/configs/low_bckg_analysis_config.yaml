@@ -7,10 +7,12 @@
 common:
     input_dir   : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/'
     summary_dir : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/'
+    runs_info   : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv'
     evt_key     : 'Events'
 
 # Low Pressure Run (LPR) configurations
-# LPR_p2: UPDATE ESTE!
+# LPR_p2:   UPDATE INFOR IN CASE WE NEED IT
+# - DBSCAN parameter eps = 3
 #     data:
 #         processed_file : 'merged_tagged_runs_LPR_p2.h5'
 #         summary_file   : 'summary_LPR_p2_processed.csv'
@@ -26,16 +28,35 @@ common:
 #                     b : -0.000564
 
 LPR_p2_v2:
+#  - Now, we first treat with spurious hits, just after load Sophronia dataframes.
+#  - DBSCAN parameter eps = 1.8
+
     data:
         processed_file : 'merged_tagged_runs_castle_closed_RAS_p2_zemrude_v2.h5'
         summary_file   : 'summary_p2_zemrude_v2_processed.csv'
+        
+        duration : 3485614.533823055
         he_scale :
                     m : 0.955348
-                    b : 0.008559  
+                    b : 0.008559
+        extra:
+            period   : 'p2'
+            det_cond : 'castle_closed_RAS'
 
     mc:
         processed_file : 'merged_tagged_mc_radiogenics_lpr.h5'
         summary_file   : 'summary_radiogenics_lpr_20052026_processed.csv'
+        duration : 315576000    # 10 years in [s]
         he_scale :
                     m : 0.997849
                     b : -0.000564
+
+    icaros_data:
+    # Used to compare with Zemrude performance.
+    # Kr correction is given in PE
+        processed_file : 'merged_tagged_runs_castle_closed_RAS_p2_icaros_v2.h5'
+        summary_file   : 'summary_p2_icaros_v2_processed.csv'
+        duration : 3485614.533823055
+        he_scale :
+                    m : 4.80e-06
+                    b : 0.0094  

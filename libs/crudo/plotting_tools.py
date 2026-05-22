@@ -131,6 +131,7 @@ def selection_volume(z, dz, r, dr):
 # ----- Personal Colors ----- #
 ###############################
 
+comp_colors = ['navy', 'crimson']
 
 hist_colors = ['black', 'crimson', 'darkorange', 'deepskyblue', 'green', 'navy', 'magenta', 'olive', 'mediumpurple', 'red', 'grey']
 
@@ -291,32 +292,14 @@ def event_display(
         if variable not in event_data.columns:
             raise ValueError(f"  No '{variable}' variable found in the DataFrame.")
 
-        q = event_data[variable]
-        # Setup color
-        q_valid = q.dropna()
-        if q_valid.empty:
-            print(f"  Warning: Event {evt_to_plot} does not exist in dataframe. ")
-            plot_q = np.full(len(event_data), 1)
-            norm = mcolors.Normalize(vmin=0, vmax=1)
-            cbar_label = f'{variable} (No data)'
-            cmap = 'gray'
-        elif (q_valid <= 0).all():
-            print(f"  Warning: Event {evt_to_plot} has no positive '{variable}' values to plot. Displaying hits in a single color.")
-            plot_q = np.full(len(event_data), 1)
-            norm = mcolors.Normalize(vmin=0, vmax=1)
-            cbar_label = f'{variable} (No positive values)'
-            cmap = 'gray'
-        else:
-            plot_q = q.clip(lower=q_valid[q_valid > 0].min() * 0.1)
-            norm = mcolors.LogNorm(vmin=plot_q.min(), vmax=plot_q.max())
-            cbar_label = f'Log({variable})'
-            cmap = custom_hsv
+        # Group total energy for coloring
+        df_grouped_xy = event_data.groupby(['X', 'Y'], as_index=False)[variable].sum()
+        df_grouped_zy = event_data.groupby(['Z', 'Y'], as_index=False)[variable].sum()
 
         fig, axs = plt.subplots(1, 2, figsize=(16, 7), sharey=True)
-        # fig.patch.set_facecolor('white')
 
         # --- XY Plot (First Subplot) ---
-        scatter_xy = axs[0].scatter(event_data['X'], event_data['Y'], c=plot_q, s=15, cmap=cmap, norm=norm, ec='none')
+        scatter_xy = axs[0].scatter(df_grouped_xy['X'], df_grouped_xy['Y'], c=df_grouped_xy[variable], cmap='jet', s=15, ec='none')
         axs[0].set_title(f'Back View')
         axs[0].set_xlabel('X [mm]')
         axs[0].set_ylabel('Y [mm]')
@@ -328,7 +311,7 @@ def event_display(
         axs[0].grid(True)
 
         # --- YZ Plot (Second Subplot) ---
-        scatter_yz = axs[1].scatter(event_data['Z'], event_data['Y'], c=plot_q, s=15, cmap=cmap, norm=norm, ec='none')
+        scatter_yz = axs[1].scatter(df_grouped_zy['Z'], df_grouped_zy['Y'], c=df_grouped_zy[variable], cmap='jet', s=15, ec='none')
         axs[1].set_title(f'Side View')
         axs[1].set_xlabel('Z [mm]')
         # Add rectangle representing the NEXT-100 detector dimensions
@@ -341,9 +324,9 @@ def event_display(
         # Global adjustments
         plt.suptitle(f"Hit Distributions for Event: {evt_to_plot}", y=0.92, fontsize=20)
         plt.tight_layout(rect=[0, 0, 0.9, 1.0])
-        cbar_ax = fig.add_axes([0.9, 0.2, 0.01, 0.55])
-        cbar = fig.colorbar(scatter_xy, cax=cbar_ax)
-        cbar.set_label(cbar_label)
+        # cbar_ax = fig.add_axes([0.9, 0.2, 0.01, 0.55])
+        # cbar = fig.colorbar(scatter_xy, cax=cbar_ax, label=f"Total {variable}")
+        fig.colorbar(scatter_xy, ax=axs[1], label=f"Total {variable}")
         plt.show()
 
     if event is not None:
