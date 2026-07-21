@@ -102,6 +102,10 @@ def parse_arguments():
                         type=str,
                         help="The isotope to process (e.g., 'Bi214', 'Co60', 'K40', 'Tl208', 'Tl214' or 'Xe136').")
 
+    parser.add_argument("--feed",
+                        action='store_true',
+                        help="If specified, use the particular path that includes the feedthrough.")
+
     # If no arguments are provided, print the help message and exit
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -254,9 +258,13 @@ def main():
     MC_PATHS = []
 
     if PROCESS_TYPE == 'radiogenics_hpr': MC_DIR += 'Radiogenics/HPR/IC_v2.3.1/NEXUS_v7_10_01/'
-    if PROCESS_TYPE == 'radiogenics_lpr': MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+    # if PROCESS_TYPE == 'radiogenics_lpr': MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+    if PROCESS_TYPE == 'radiogenics_lpr': 
+        if args.feed: MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_11_00/'
+        else:         MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+
     if PROCESS_TYPE == 'calibration_lpr': MC_DIR += 'Calibration/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
-    if PROCESS_TYPE == 'bb2nu_hpr':       MC_DIR += 'bb2nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb2nu/'
+    if PROCESS_TYPE == 'bb2nu_hpr':       MC_DIR += 'bb2nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb2nu0p1/'      # Changes here!
     if PROCESS_TYPE == 'bb0nu_hpr':       MC_DIR += 'bb0nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb0nu/'
 
     if ISOTOPE != 'Xe136':  MC_DIR += ISOTOPE + '/'

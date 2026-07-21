@@ -37,6 +37,12 @@ def efficiency(ok, lost):
 
     return efficiency, error
 
+def compute_efficiency(count_prior, count_post):
+    if count_prior == 0:
+        return 0.0, 0.0
+    else:
+        return efficiency(count_post, count_prior - count_post)  # (OK, LOST)
+
 def chi2_value(data, model, sigma, dof=None):
     """
     Calculate the reduced chi-squared value for a fit.

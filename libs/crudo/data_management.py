@@ -616,3 +616,36 @@ def tag_event_by_detector_region(
     df_peak_level['region'] = df_peak_level[event_column].map(event_to_particle_map)
     
     return df_peak_level
+
+def tag_radial_event(
+                        df_peak_level: pd.DataFrame,
+                        r_cut_high: float,
+                        event_column: str = 'event'
+                    ) -> pd.Series:
+    """
+    Description...
+    Returns:
+        pd.DataFrame: The input DataFrame with a new 'region' column added.
+    """
+    if df_peak_level.empty:
+        df_peak_level['region'] = pd.Series(dtype='object')
+        return df_peak_level
+    
+    # Event-level information
+    event_summary = df_peak_level.groupby(event_column).agg(R_max=('R_max', 'first'))
+
+    # Base masks
+    is_r_contained = (event_summary['R_max'] < r_cut_high)
+
+    # Conditions and choices for np.select (priority order matters!)    
+    conditions = [ is_r_contained ]     # 3. If contained in R, it's Fiducial.
+                 
+    choices = ['fiducial']
+
+    # Map event-level classification back to peak-level DataFrame
+    event_summary['region'] = np.select(conditions, choices, default='unclassified')
+    event_to_particle_map = event_summary['region']
+
+    df_peak_level['region'] = df_peak_level[event_column].map(event_to_particle_map)
+    
+    return df_peak_level
