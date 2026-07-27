@@ -45,11 +45,11 @@ from typing import Callable, List, Tuple
 # OUTPUT FILENAME TAG
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
-VERSION_TAG = 'p2_icaros_v2'
+VERSION_TAG = 'LPR_p2_v3'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
-ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/2025/'
+ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/'
 OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
 
 RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
@@ -69,7 +69,7 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Ec', 'clus
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'old_n_hits']
 
 # CUTFLOWS
-CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive', 'S1_Cut']
+CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive']
 
 # ---------------------
 # PROCESSING PARAMETERS
@@ -201,13 +201,13 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
                                                    , energy_col = 'E_hit_pe'
                                                    , output_col ='Ec' )
 
-        # ----- S1e Cut & Correction ----- #
-        # nS1 <= 1 (NO-Polike)
-        s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
-        # S1e Correction
-        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
+        # # ----- S1e Cut & Correction ----- #
+        # # nS1 <= 1 (NO-Polike)
+        # s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
+        # df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
+        # local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
+        # # S1e Correction
+        # df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
 
         # ----- Data @ Event/Peak-Level ----- #
         # Now, store just the relevant columns in final Sophronia dataframe

@@ -27,7 +27,7 @@ def h5_describer(file_path):
 def load_run_data(  
                     run_info, 
                     id=False, 
-                    base_path="/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Alphas/", 
+                    base_path="/lhome/ific/c/ccortesp/Data/Sophronia/Alphas/", 
                     city="sophronia", 
                     trigger=2, 
                     key="/DST/Events", 
@@ -363,7 +363,7 @@ def summarize_dorothea_info(df_doro: pd.DataFrame, event_level_cols: List[str]) 
     Returns:
         pd.DataFrame: An event-level summary DataFrame.
     """
-    S1_PULSE_COLS = ['S1e', 'S1e_corr', 'S1w', 'S1h', 'S1t']
+    S1_PULSE_COLS = ['S1e', 'S1w', 'S1h', 'S1t']
     S2_PULSE_COLS = ['S2e', 'S2w', 'S2h', 'S2t', 'S2q']
 
     # --- Input Validation --- #

@@ -25,8 +25,8 @@ def epoch_converter(epoch_time, h=False):
     dt_object = datetime.fromtimestamp(epoch_time)
     # Use different formats based on the value of h
     if h:
-        # formatted_date = dt_object.strftime('%H:%M')
-        formatted_date = dt_object.strftime('%d/%m - %H:%M')  # day/month - hour:minute
+        formatted_date = dt_object.strftime('%H:%M')
+        # formatted_date = dt_object.strftime('%d/%m - %H:%M')  # day/month - hour:minute
     else:
         formatted_date = dt_object.strftime('%d/%m')          # day/month
     

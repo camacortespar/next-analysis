@@ -5,6 +5,8 @@
 #   - HE scale values from '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Th_analysis/notebooks/0 - HE_Scale_Finder.ipynb'
 # ===================================================
 common:
+    soph_dir    : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
+    icaros_dir  : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/'
     input_dir   : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/'
     summary_dir : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/'
     runs_info   : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv'
@@ -59,4 +61,20 @@ LPR_p2_v2:
         duration : 3485614.533823055
         he_scale :
                     m : 4.80e-06
-                    b : 0.0094  
+                    b : 0.0094
+
+LPR_p2_v3:
+#  - Now, we first treat with spurious hits, just after load Sophronia dataframes.
+#  - DBSCAN parameter eps = 1.8
+
+    data:
+        processed_file : 'merged_tagged_runs_castle_closed_RAS_p2_zemrude_v2.h5'
+        summary_file   : 'summary_p2_zemrude_v2_processed.csv'
+        
+        duration : 3485614.533823055
+        he_scale :
+                    m : 0.955348
+                    b : 0.008559
+        extra:
+            period   : 'p2'
+            det_cond : 'castle_closed_RAS'
