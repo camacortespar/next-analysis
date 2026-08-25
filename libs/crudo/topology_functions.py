@@ -8,7 +8,7 @@ import pandas as pd
 from scipy.spatial.distance import cdist
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
-from typing import Callable
+from typing import Callable, List, Optional, Tuple, Union
 
 # ----- Hit-level ----- #
 
@@ -442,72 +442,45 @@ def drop_hits_under_Q_threshold(
 
 # ----- Event-level ----- #
 
-def cathode_position(
-                        run_info,
-                        run_data,
-                        id=False,
-                        n_bins=80,
-                        step_back=0,
-                        verbose=True
-                    ):
+def get_cathode_limit( df        : pd.DataFrame
+                     , n_bins    : int  = 80
+                     , step_back : int  = 0
+                     , verbose   : bool = True ) -> float:
     """
-    Determines the stopping cathode time position (DT_stop) for a given run.
+    Determines the stopping cathode time position (cath_lim) for a given DataFrame.
 
     Parameters:
-        run_info (dict or int): Run details containing "run_number" or the run ID directly if `id=True`.
-        run_data (dict of pd.DataFrame): Dictionary mapping run numbers to their corresponding DataFrames.
-        id (bool): If True, treats `run_info` as the run ID. Default is False.
-        n_bins (int): Number of bins for the histogram. Default is 80.
-        step_back (int): Number of bins to step back from the cathode peak. Default is 0.
-        verbose (bool): If True, prints debug messages. Default is True.
+        df (pd.DataFrame) : DataFrame containing the 'DT' column with drift time values.
+        n_bins (int)      : Number of bins for the histogram. Default is 80.
+        step_back (int)   : Number of bins to step back from the cathode peak. Default is 0.
+        verbose (bool)    : If True, prints debug messages. Default is True.
 
     Returns:
-        dict: A dictionary with the run number as the key and DT_stop as the value.
+        float: The stopping cathode time position (cath_lim) or None if an error occurs.
     """
-    # Determine run ID from input
-    run_id = run_info if id else run_info.get("run_number", None)
-    if run_id is None:
-        raise ValueError("run_info must contain a 'run_number' key or be the run ID if `id=True`.")
-    
-    # Initialize dictionary to store DT_stop for the run
-    DT_stop = {}
-    
     try:
-        # Extract drift time (DT) data for the run
-        DT = run_data[run_id]['DT']
+        DT = df['DT']
         if DT.empty:
-            if verbose:
-                print(f"Warning: No valid DT data for run {run_id}. Skipping...")
-            DT_stop[run_id] = None
-            return DT_stop
+            if verbose: print(f"Warning: No valid DT data found. Skipping...")
+            return None
 
         # Compute histogram of DT, ignoring negative values
         counts, bins = np.histogram(DT, bins=n_bins, range=(0, DT.max()))
         # Identify the bin with the highest count (cathode peak)
         cath_index = np.argmax(counts)
 
-        # Validate step_back and calculate DT_stop
+        # Validate step_back and compute cathode limit
         if cath_index - step_back < 0:
-            if verbose:
-                print(f"Warning: Step back exceeds valid range for run {run_id}. Using highest bin edge.")
-            DT_stop[run_id] = bins[cath_index]
+            if verbose: print(f"Warning: Step back exceeds valid range for run {run_id}. Using highest bin edge.")
+            cath_lim = bins[cath_index]
         else:
-            DT_stop[run_id] = bins[cath_index - step_back]
+            cath_lim = bins[cath_index - step_back]
             
-        # Debug output if verbose
-        if verbose:
-            print(f"Run {run_id}: DT_stop = {DT_stop[run_id]:.2f} μs")
-
-    except KeyError:
-        # Handle missing run data
-        if verbose:
-            print(f"Error: Run {run_id} not found in run_data.")
-        DT_stop[run_id] = None
+        # Debuuug
+        if verbose: print(f"Cathode limit = {cath_lim:.2f} μs")
 
     except Exception as e:
-        # Handle unexpected errors
-        if verbose:
-            print(f"Error processing run {run_id}: {e}")
-        DT_stop[run_id] = None
+        if verbose: print(f"Error processing dataframe: {e}")
+        return None
             
-    return DT_stop
+    return cath_lim

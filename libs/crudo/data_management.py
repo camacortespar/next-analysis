@@ -24,120 +24,94 @@ def h5_describer(file_path):
     with h5py.File(file_path, 'r') as f:
         f.visititems(print_structure)
 
-def load_run_data(  
-                    run_info, 
-                    id=False, 
-                    base_path="/lhome/ific/c/ccortesp/Data/Sophronia/Alphas/", 
-                    city="sophronia", 
-                    trigger=2, 
-                    key="/DST/Events", 
-                    verbose=True
-                ):
+def load_run_data( run_id    : int
+                 , base_path : str  = "/lhome/ific/c/ccortesp/Data/Alphas/"
+                 , city      : str  = "sophronia"
+                 , key       : str  = "/DST/Events"
+                 , trigger2  : bool = True
+                 , extra     : str  = ""
+                 , verbose   : bool = True ) -> pd.DataFrame:
     """
-    Loads HDF5 data for a specific run and returns a concatenated DataFrame.
+    Loads HDF5 data for a specific run across all LDCs (1 to 7) and returns a concatenated DataFrame.
 
     Parameters:
-        run_info (dict or int): Run information containing "run_number" or the run ID directly if `id=True`.
-        id (bool): If True, `run_info` is treated as the run ID. Default is False.
-        base_path (str): Base directory for HDF5 files. Default is the specified path.
-        city (str): Subdirectory name for the run files. Default is "sophronia".
-        trigger (int or None): Trigger type (e.g., 2 for trg2). Default is 2. If None, no trigger is used.
-        key (str): HDF5 dataset path to load. Default is "/DST/Events".
-        verbose (bool): If True, prints debug messages. Default is True.
+        run_id (int)           : The run ID to load data for.
+        base_path (str)        : Base directory path where the HDF5 files are stored.
+        city (str)             : Name of the reconstruction city (e.g., "sophronia"). Default is "sophronia".
+        key (str)              : Path of the dataset inside the HDF5 file. Default is "/DST/Events".
+        trigger2 (bool)        : If True, appends the "_trg2" suffix to the filename. Default is True.
+        extra (str)            : Optional string suffix to append to the filename (e.g., "v2"). Default is "".
+        verbose (bool)         : If True, prints status, warning, and error messages. Default is True.
 
     Returns:
-        dict: A dictionary with the run number as the key and the concatenated DataFrame as the value.
-              Returns an empty DataFrame if no valid files are found.
+        pd.DataFrame: A concatenated pandas DataFrame containing the data for the specified run.
+                      Returns an empty DataFrame if no valid data is loaded.
     """
-    # Determine run ID
-    run_id = run_info if id else run_info.get("run_number", None)
-    if run_id is None:
-        raise ValueError("run_info must contain a 'run_number' key or be the run ID if `id=True`.")
-
-    # Initialize storage for run data and valid file paths
-    run_data = {}
-    h5_files = []
+    trg_suffix   = "_trg2" if trigger2 else ""
+    extra_suffix = f"_{extra}" if extra else ""
 
     # Search for HDF5 files across LDCs (1 to 7)
+    h5_files = []
     for ldc in range(1, 8):
-        file_name = os.path.join(base_path, f"run_{run_id}_ldc{ldc}{'_trg2' if trigger == 2 else ''}_{city}.h5")
+        file_name = os.path.join( base_path
+                                , f"run_{run_id}_ldc{ldc}{trg_suffix}_{city}{extra_suffix}.h5" )
         # print(f"Checking for file: {file_name}")
-        if os.path.isfile(file_name):
-            h5_files.append(file_name)
-        elif verbose:
-            print(f"Warning: File {file_name} does not exist, skipping...")
+        if os.path.isfile(file_name):   h5_files.append(file_name)
+        elif verbose:                   print(f"Warning: File {file_name} does not exist, skipping...")
 
     # Return empty DataFrame if no files found
     if not h5_files:
-        if verbose:
-            print(f"Warning: No valid files found for run {run_id}.")
-        run_data[run_id] = pd.DataFrame()
-        return run_data
+        if verbose: print(f"Warning: No valid files found for run {run_id}.")
+        return pd.DataFrame()
 
-    # Load and concatenate data from valid files
+    # --- Load & Concatenate DataFrames --- #
     dataframes = []
     for file in h5_files:
         try:
             dataframes.append(pd.read_hdf(file, key=key))
         except Exception as e:
-            if verbose:
-                print(f"Error reading {file}: {e}")
+            if verbose: print(f"Error reading {file}: {e}")
 
-    # Store concatenated DataFrame or empty DataFrame if no data loaded
     if dataframes:
-        run_data[run_id] = pd.concat(dataframes, ignore_index=True)
-        if verbose:
-            print(f"{key}: Run {run_id} successfully loaded with data shape: {run_data[run_id].shape}")
+        run_df = pd.concat(dataframes, ignore_index=True)
+        if verbose: print(f"{key}: Run {run_id} successfully loaded with data shape: {run_df.shape}")
     else:
-        if verbose:
-            print(f"Warning: No data loaded for run {run_id}.")
-        run_data[run_id] = pd.DataFrame()
+        if verbose: print(f"Warning: No data loaded for run {run_id}.")
+        run_df = pd.DataFrame()
 
-    return run_data
+    return run_df
 
-def filter_run_data(
-                        run_info,
-                        run_data, 
-                        sel_criteria, 
-                        id=False, 
-                        verbose=True
-                    ):
+def filter_run_data( df           : pd.DataFrame
+                   , sel_criteria : Callable[[pd.DataFrame], pd.Series]
+                   , verbose      : bool = True ) -> pd.DataFrame:
                     
     """
     Filters event-level data for a specific run based on custom criteria.
 
+    This function applies a user-defined filtering logic to a DataFrame grouped by 'event'.
+    The filtering criteria are provided as a callable that returns a boolean mask.
+
     Parameters:
-        run_info (dict or int): Run information containing "run_number" or the run ID directly if `id=True`.
-        run_data (dict of pd.DataFrame): Maps run numbers to their corresponding DataFrames.
-        sel_criteria (callable): Function defining the filtering logic for events.        
-        id (bool): If True, `run_info` is treated as the run ID. Default is False.
+        df (pd.DataFrame): The input DataFrame containing event-level data.
+        sel_criteria (Callable[[pd.DataFrame], pd.Series]): A function that defines the filtering logic.
+                                                            It should return a boolean Series indicating
+                                                            which groups (events) to keep.
         verbose (bool): If True, prints debug messages. Default is True.
 
     Returns:
-        dict: A dictionary with run numbers as keys and filtered DataFrames as values.
-              Returns an empty DataFrame if filtering fails.
+        pd.DataFrame: A filtered DataFrame containing only the events that meet the criteria.
+                      Returns an empty DataFrame if filtering fails or no events match the criteria.
     """
-    # Determine run ID
-    run_id = run_info if id else run_info.get("run_number", None)
-    if run_id is None:
-        raise ValueError("run_info must contain a 'run_number' key or be the run ID if `id=True`.")
-
-    # Initialize dictionary to store filtered data
-    filtered_data = {}
-
+    filtered_data = pd.DataFrame()
     try:
         # Apply filtering criteria to the DataFrame grouped by 'event'
-        filtered_data[run_id] = run_data[run_id].groupby('event').filter(sel_criteria)
+        filtered_data = df.groupby('event').filter(sel_criteria)
 
-        # Print success message if verbose is enabled
-        if verbose:
-            print(f"Run {run_id} filtered successfully. Data shape: {filtered_data[run_id].shape}")
+        if verbose:  print(f"Filtered successfully. Data shape: {filtered_data.shape}")
     
     except Exception as e:
         # Handle errors and store an empty DataFrame for the run
-        if verbose:
-            print(f"Error filtering run {run_id}: {e}")
-        filtered_data[run_id] = pd.DataFrame()
+        if verbose: print(f"Error filtering data: {e}")
 
     return filtered_data
 
@@ -387,7 +361,10 @@ def summarize_dorothea_info(df_doro: pd.DataFrame, event_level_cols: List[str]) 
 
     return doro_info_df
 
-def summarize_hits_to_event_level(df_hits: pd.DataFrame, energy_column='E_hit_mev', size_variable='n_hits') -> pd.DataFrame:
+def summarize_hits_to_event_level( df_hits       : pd.DataFrame
+                                 , event_column  : str = 'event'
+                                 , energy_column : str = 'E_hit_mev'
+                                 , size_variable : str = 'n_hits') -> pd.DataFrame:
     """
     Aggregates hit-level DataFrame to a final event-level summary.
 
@@ -402,7 +379,7 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame, energy_column='E_hit_me
         pd.DataFrame: An event-level summary DataFrame with one row per event.
     """
     # --- Input Validation --- #
-    required_columns = {'event', 'X', 'Y', 'Z', energy_column, 'cluster'}
+    required_columns = {event_column, 'X', 'Y', 'Z', energy_column, 'cluster'}
     missing_columns = required_columns - set(df_hits.columns)
     if missing_columns:
         raise ValueError(f"Input DataFrame is missing required columns: {sorted(list(missing_columns))}")
@@ -418,10 +395,10 @@ def summarize_hits_to_event_level(df_hits: pd.DataFrame, energy_column='E_hit_me
     df_hits['Y_w'] = df_hits['Y'] * df_hits[energy_column]
     df_hits['Z_w'] = df_hits['Z'] * df_hits[energy_column]
     # Event size
-    event_size_df = df_hits.groupby('event').size().rename(size_variable)
+    event_size_df = df_hits.groupby(event_column).size().rename(size_variable)
 
     # --- Event-Level Simple Aggregations ---
-    soph_info_df = df_hits.groupby('event').agg(
+    soph_info_df = df_hits.groupby(event_column).agg(
         X_w_sum   = ('X_w', 'sum'),
         Y_w_sum   = ('Y_w', 'sum'),
         Z_w_sum   = ('Z_w', 'sum'),

@@ -170,9 +170,7 @@ def plot_colormap(cmap, title="Colormap", figsize=(8, 2)):
 ###################################################
 # ----- P l o t t i n g   F u n c t i o n s ----- #
 ####################################################
-
-
-def mapping(x, y, wei=None, xy_bins=50, pos=False, norm=False):
+def mapping(x, y, wei=None, pitch=15.55, bin_scale=1, max_limit=550, pos=False, norm=False):
     """
     Generate a 2D histogram map with optional normalization and position map.
 
@@ -193,9 +191,16 @@ def mapping(x, y, wei=None, xy_bins=50, pos=False, norm=False):
     Raises:
         ValueError: If normalization is requested and the center bin value is zero.
     """
-    # Define bin edges for x and y axes
-    x_bins = np.linspace(-600, 600, xy_bins)
-    y_bins = np.linspace(-600, 600, xy_bins)
+   # Calculate the bin width as an integer multiple of the physical pitch
+    bin_width = bin_scale * pitch
+    
+    # Determine the number of bins (k) needed to cover the active area
+    k = int(np.ceil(max_limit / bin_width))
+    
+    # Generate bin edges shifted by half a bin width so that the grid points
+    # sit perfectly in the center of each bin (e.g., edges at -1.5, -0.5, 0.5, 1.5)
+    x_bins = (np.arange(-k - 1, k + 1) + 0.5) * bin_width
+    y_bins = x_bins # The tracking plane is symmetric
   
     # Compute position map (counts per bin)
     position_map, x_edges, y_edges = np.histogram2d(x, y, bins=[x_bins, y_bins])
@@ -231,6 +236,67 @@ def mapping(x, y, wei=None, xy_bins=50, pos=False, norm=False):
     
     # Return the weighted map by default
     return mapeo, x_edges, y_edges
+
+
+# def mapping(x, y, wei=None, xy_bins=50, pos=False, norm=False):
+#     """
+#     Generate a 2D histogram map with optional normalization and position map.
+
+#     Parameters:
+#         x (array-like): x-coordinates of data points.
+#         y (array-like): y-coordinates of data points.
+#         wei (array-like, optional): Weights for the histogram. Default is None.
+#         xy_bins (int): Number of bins for both axes. Default is 50.
+#         pos (bool): If True, return only the position map (counts per bin). Default is False.
+#         norm (bool): If True, normalize maps by the center bin value. Default is False.
+
+#     Returns:
+#         tuple:
+#             - np.ndarray: Weighted map (normalized or unnormalized) or position map.
+#             - np.ndarray: Edges of x bins.
+#             - np.ndarray: Edges of y bins.
+
+#     Raises:
+#         ValueError: If normalization is requested and the center bin value is zero.
+#     """
+#     # Define bin edges for x and y axes
+#     x_bins = np.linspace(-600, 600, xy_bins)
+#     y_bins = np.linspace(-600, 600, xy_bins)
+  
+#     # Compute position map (counts per bin)
+#     position_map, x_edges, y_edges = np.histogram2d(x, y, bins=[x_bins, y_bins])
+
+#     # Compute weighted map (sum of weights per bin)
+#     mapeo, _, _ = np.histogram2d(x, y, bins=[x_bins, y_bins], weights=wei)
+    
+#     # Normalize weighted map by position map where counts are non-zero
+#     mapeo = np.divide(mapeo, position_map, out=np.zeros_like(mapeo), where=position_map != 0)
+    
+#     if norm:
+#         # Compute bin centers for x and y axes
+#         x_centers = 0.5 * (x_edges[:-1] + x_edges[1:])
+#         y_centers = 0.5 * (y_edges[:-1] + y_edges[1:])
+
+#         # Find indices of the bin closest to the origin (0, 0)
+#         center_x_index = np.abs(x_centers).argmin()
+#         center_y_index = np.abs(y_centers).argmin()
+
+#         # Normalize maps by their center bin values
+#         pos_center_value   = position_map[center_x_index, center_y_index]
+#         mapeo_center_value = mapeo[center_x_index, center_y_index]
+
+#         if pos_center_value == 0 or mapeo_center_value == 0:
+#             raise ValueError("Normalization failed: Center bin value is zero.")
+
+#         position_map /= pos_center_value
+#         mapeo /= mapeo_center_value
+       
+#     if pos:
+#         # Return only the position map if requested
+#         return position_map, x_edges, y_edges
+    
+#     # Return the weighted map by default
+#     return mapeo, x_edges, y_edges
 
 def hist_2D(x, y, x_bins=50, y_bins=50, wei=None):
     """
@@ -394,6 +460,15 @@ def display_event_cluster(
     axes[0, 1].set_ylim(-N100_rad*1.25, N100_rad*1.25)
     axes[0, 1].set_aspect('equal', adjustable='box')
     axes[0, 1].add_patch(Circle((0, 0), N100_rad, color='red', fill=False, lw=1.5, label='NEXT-100 Radius'))
+
+    # Region of interest
+    x_left, x_right = -N100_rad, -250
+    y_left, y_right = -60, 60
+    axes[0, 1].add_patch(plt.Rectangle((x_left, y_left), x_right - x_left, y_right - y_left, 
+                        fill=False, edgecolor='red', ls='--'))
+    axes[0, 1].add_patch(plt.Rectangle((-x_left, -y_left), - (x_right - x_left), - (y_right - y_left), 
+                        fill=False, edgecolor='red', ls='--'))
+                        
     axes[0, 1].set_facecolor("whitesmoke")
     axes[0, 1].grid(True)
     axes[0, 1].legend(loc='upper right', markerscale=1.5, fontsize=8, facecolor='none', edgecolor='none')
