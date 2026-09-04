@@ -11,7 +11,6 @@ from   PIL import Image
 # ----- NEXT Experiment Plot Style ----- #
 ##########################################
 
-
 color_sequence = ("k", "m", "g", "b", "r",
                   "gray", "aqua", "gold", "lime", "purple",
                   "brown", "lawngreen", "tomato", "lightgray", "lightpink")
@@ -39,7 +38,37 @@ def auto_plot_style(overrides = dict()):
     plt.rcParams.update(overrides)
 
 def ccortesp_plot_style(overrides = dict()):
-    plt.rcParams[ "figure.figsize"              ] = 7, 5    # Change 10, 8 for papers
+    plt.rcParams[ "figure.figsize"              ] = 7, 5
+    plt.rcParams[ "font.size"                   ] = 25
+    plt.rcParams[ "axes.formatter.use_mathtext" ] = True
+    plt.rcParams[ "axes.formatter.limits"       ] = (-3 ,4)
+    plt.rcParams[ "xtick.major.size"            ] = 10
+    plt.rcParams[ "ytick.major.size"            ] = 10
+    plt.rcParams[ "xtick.minor.size"            ] = 5
+    plt.rcParams[ "ytick.minor.size"            ] = 5
+    plt.rcParams[ "patch.linewidth"             ] = 3
+    plt.rcParams[ "axes.linewidth"              ] = 2
+
+    plt.rcParams[ "legend.frameon"              ] = True
+    plt.rcParams[ "legend.edgecolor"            ] = "none"
+    plt.rcParams[ "legend.facecolor"            ] = "none"
+    
+    plt.rcParams[ "grid.linewidth"              ] = 1
+    plt.rcParams[ "grid.linestyle"              ] = "--"
+    plt.rcParams[ "grid.alpha"                  ] = 0.5
+
+    plt.rcParams[ "lines.markersize"            ] = 8
+    plt.rcParams[ "lines.linewidth"             ] = 1
+    
+    plt.rcParams[ "savefig.dpi"                 ] = 300
+    plt.rcParams[ "savefig.bbox"                ] = "tight"
+    
+    plt.rcParams[ "axes.prop_cycle"             ] = cycler(color=color_sequence)
+    plt.rcParams[ "image.cmap"                  ] = "plasma"
+    plt.rcParams.update(overrides)
+
+def papers_plot_style(overrides = dict()):
+    plt.rcParams[ "figure.figsize"              ] = 10, 8
     plt.rcParams[ "font.size"                   ] = 25
     plt.rcParams[ "axes.formatter.use_mathtext" ] = True
     plt.rcParams[ "axes.formatter.limits"       ] = (-3 ,4)
@@ -65,7 +94,7 @@ def ccortesp_plot_style(overrides = dict()):
     plt.rcParams[ "savefig.bbox"                ] = "tight"
     
     plt.rcParams[ "axes.prop_cycle"             ] = cycler(color=color_sequence)
-    plt.rcParams[ "image.cmap"                  ] = "gnuplot2"
+    plt.rcParams[ "image.cmap"                  ] = "plasma"
     plt.rcParams.update(overrides)
 
 

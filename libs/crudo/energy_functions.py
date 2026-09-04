@@ -111,7 +111,7 @@ def correct_S2e_map(
     mask = (DT < DT_cath)
 
     # Generate normalized energy map
-    energy_map, x_edges, y_edges = pt.mapping(X[mask], Y[mask], wei=E2[mask], xy_bins=xy_bins, norm=True)
+    energy_map, x_edges, y_edges = pt.mapping(X[mask], Y[mask], wei=E2[mask], norm=True)
 
     # Map events to reference bins, ensuring valid indices
     df['x_bin'] = np.clip(np.digitize(X, x_edges) - 1, 0, len(x_edges) - 2)

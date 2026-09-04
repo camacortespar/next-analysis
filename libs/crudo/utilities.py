@@ -5,6 +5,8 @@
 from datetime import datetime
 import locale
 import numpy as np
+from typing import Tuple
+
 
 
 
@@ -63,3 +65,40 @@ def weighted_avg(series, weight):
 
 def R_max_func(group_df):
     return np.sqrt(group_df['X']**2 + group_df['Y']**2).max()
+
+# ----- Background Index ----- #
+def back_index(rate_hz: float, rate_err_hz: float, mass_kg: float, delta_E_mev: float) -> Tuple[float, float]:
+    """
+    Calculates the Background Index (BI) and its statistical error.
+    
+    The error propagation assumes that mass_kg and delta_E_mev are constants
+    with no associated uncertainty.
+    
+    Parameters:
+    - rate_hz: The central value of the rate in Hz.
+    - rate_err_hz: The statistical uncertainty of the rate in Hz.
+    - mass_kg: The fiducial mass in kg.
+    - delta_E_mev: The energy window width in MeV.
+    
+    Returns:
+    - A tuple containing:
+        - bi_cv (float): The central value of the Background Index in counts/(keV·kg·yr).
+        - bi_err (float): The propagated statistical error of the BI.
+    """
+    # Define constants
+    SECONDS_PER_YEAR = 31536000.0    # Number of seconds in a year
+    
+    # Check for valid inputs to prevent division by zero
+    if mass_kg <= 0 or delta_E_mev <= 0:
+        raise ValueError("Mass and energy window must be positive values.")
+        
+    # --- Compute Central Value ---
+    rate_in_year = rate_hz * SECONDS_PER_YEAR
+    delta_E_keV = delta_E_mev * 1000.0
+    bi_cv = rate_in_year / (mass_kg * delta_E_keV)
+    
+    # --- Propagate the Error ---
+    rate_err_in_year = rate_err_hz * SECONDS_PER_YEAR
+    bi_err = rate_err_in_year / (mass_kg * delta_E_keV)
+    
+    return bi_cv, bi_err
