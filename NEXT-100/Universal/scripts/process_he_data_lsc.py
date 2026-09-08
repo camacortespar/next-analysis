@@ -14,7 +14,8 @@ Usage:
     python process_HE_data.py <run_number> <ldc_number> <n_files> <kr_city>
 
 Note:
-    Yes, this script is a mirror of the one used for low-background data processing, but adapted for the specific needs of high-energy calibration runs.
+    Yes, this script is a mirror of the one used for low-background data processing,
+    but adapted for the specific needs of high-energy calibration runs.
 """
 
 # ============================================================================
@@ -40,18 +41,18 @@ import os
 import pandas as pd
 from typing import Callable, List, Tuple
 
-# =============================================================================
-# ----- CONFIGURATION & ARGUMENT DEFINITION -----
-# =============================================================================
+# =============================================== #
+# ----- CONFIGURATION & ARGUMENT DEFINITION ----- #
+# =============================================== #
 # OUTPUT FILENAME TAG
-VERSION_TAG = 'LPR_p2'
+VERSION_TAG = 'calibration_hpr'     # Options: 'calibration_hpr_vX'
 
 # DIRECTORIES, PATHS & FILES
 DATA_DIR   = '/home/shifter/ccortesp/sophronia/he_calibration/'
 ICAROS_DIR = '/home/shifter/ccortesp/HE_processing/krmaps/'
 OUTPUT_DIR = '/home/shifter/ccortesp/HE_processing/output/'
 
-SUMMARY_FILENAME = 'summary_LDC_' + VERSION_TAG + '.csv'
+SUMMARY_FILENAME = 'summary_data_' + VERSION_TAG + '.csv'
 SUMMARY_PATH = os.path.join('/home/shifter/ccortesp/HE_processing/txt/', SUMMARY_FILENAME)
 
 # KEYS
@@ -66,22 +67,12 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'DT', 'Z', 'Ec', 'clus
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'old_n_hits']
 
 # CUTFLOW
-CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive', 'S1_Cut']
+CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive']
 
 # ---------------------
 # PROCESSING PARAMETERS
 # ---------------------
 V_DRIFT = 0.865     # Drift velocity in [mm/μs]
-
-# --- S1 Signal Cuts ---
-# Po-like events are filtered using: S1h >= m * S1e + b
-M_NOPOLIKE = 0.17
-B_NOPOLIKE = -56
-
-# --- S1e Correction ---
-# Values from Radon analysis: S1e = m * DT + b
-DT_CATH = 1350              # Cathode temporal position in [μs]
-CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
 CLUSTERING_PARAMS = dict(eps = 1.8, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
@@ -152,19 +143,17 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     --------
         df_event_peak : pandas.DataFrame
             Dataframe containing the processed data aggregated to the event-peak level.
-        df_soph_final : pandas.DataFrame
-            Dataframe containing the final hits-level data with relevant columns.
         local_evt_counter : dict
             Dictionary containing the count of events passing each cut.
     Notes:
     ------
     - The function performs the following steps:
         1. Loads Dorothea and Sophronia data from the input file.
-        2. Computes the Z position using drift velocity and removes events with Z <= 0.
-        3. Applies energy corrections using a Krypton map.
-        4. Applies S1e cuts and corrections based on alpha analysis.
-        5. Deals with spurious hits using a clustering function.
-        6. Aggregates the data to event-peak level for further analysis.
+           Computes the Z position using drift velocity.
+        2. Deals with spurious hits using a clustering function.
+        3. Removes events with Z <= 0.
+        4. Applies energy corrections using a Krypton map.        
+        5. Aggregates the data to event-peak level for further analysis.
     - If an error occurs during processing, the function returns empty dataframes and a dictionary of zeros 
       to ensure robustness.
     """
@@ -208,14 +197,6 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
                                                    , energy_col = 'E_hit_pe'
                                                    , output_col ='Ec' )
 
-        # ----- S1e Cut & Correction ----- #
-        # nS1 <= 1 (NO-Polike)
-        s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
-        # S1e Correction
-        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
-
         # ----- Data @ Event/Peak-Level ----- #
         # Now, store just the relevant columns in final Sophronia dataframe
         df_soph = df_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
@@ -237,9 +218,9 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
 
     return df_event_peak, local_evt_counter
 
-# =============================================================================
-# ----- MAIN -----
-# =============================================================================
+# ================ #
+# ----- MAIN ----- #
+# ================ #
 
 def main():
     """

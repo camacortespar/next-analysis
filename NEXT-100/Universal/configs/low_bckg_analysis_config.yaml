@@ -4,7 +4,7 @@
 common:
     soph_dir    : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
     krypton_dir : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Krypton/Low_background/'
-    input_dir   : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/'
+    file_dir    : '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/'
     summary_dir : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/'
     runs_info   : '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv'
     evt_key     : 'Events'
@@ -13,39 +13,27 @@ common:
 # High Pressure Run (HPR) configurations
 # --------------------------------------
 
-
-
+# NOTE: There are already some processed MC HPR files, but with the 'lpr_v2' method
+#       I suggest strongly to delete them and reprocess with the 'lpr_v3' method, the final one
 
 # -------------------------------------
 # Low Pressure Run (LPR) configurations
 # -------------------------------------
-
-LPR_p2:
+radiogenics_lpr:
 # - DBSCAN parameter eps = 3
     data:
-        processed_file : 'merged_tagged_runs_castle_closed_RAS_p2_zemrude.h5'
-        summary_file   : None
-        he_scale :
-                    m : 0.952908
-                    b : 0.008638
+        processed_file : 'merged_tagged_data_radiogenics_lpr.h5'
 
-    mc:
-        processed_file : 'merged_tagged_mc_radiogenics_lpr_v2.h5'
-        summary_file   : 'summary_radiogenics_lpr_v2_processed.csv'
-        he_scale :
-                    m : 0.997849
-                    b : -0.000564
+    data_icaros:
+        processed_file : 'merged_tagged_data_radiogenics_lpr_icaros.h5'
 
-
-    icaros_data:
-
-LPR_p2_v2:
-#  - Now, we first treat with spurious hits, just after load Sophronia dataframes
-#  - DBSCAN parameter eps = 1.8
+radiogenics_lpr_v2:
+# - Now, we first treat with spurious hits, just after load Sophronia dataframes
+# - DBSCAN parameter eps = 1.8
     data:
-        processed_file : 'merged_tagged_data_castle_closed_RAS_p2_zemrude_v2.h5'
-        summary_file   : 'summary_p2_zemrude_v2_processed.csv' 
-        duration : 3485614.533823055
+        processed_file : 'merged_tagged_data_radiogenics_lpr_v2.h5'
+        summary_file   : 'summary_data_radiogenics_lpr_v2.csv' 
+        duration : 3485614.5338
         he_scale :
                     m : 0.955348
                     b : 0.008559
@@ -53,24 +41,41 @@ LPR_p2_v2:
             period   : 'p2'
             det_cond : 'castle_closed_RAS'
 
-    icaros_data:
+    data_icaros:
     # Used to compare with Zemrude performance
     # Kr correction is given in PE
-        processed_file : 'merged_tagged_data_castle_closed_RAS_p2_icaros_v2.h5'
-        summary_file   : 'summary_p2_icaros_v2_processed.csv'
-        duration : 3485614.533823055
+        processed_file : 'merged_tagged_data_radiogenics_lpr_v2_icaros.h5'
+        summary_file   : 'summary_data_radiogenics_lpr_v2_icaros.csv'
+        duration : 3485614.5338
         he_scale :
                     m : 4.80e-06
                     b : 0.0094
+        extra:
+            period   : 'p2'
+            det_cond : 'castle_closed_RAS'
 
     mc:
         processed_file : 'merged_tagged_mc_radiogenics_lpr_v2.h5'
-        summary_file   : 'summary_radiogenics_lpr_v2_processed.csv'
+        summary_file   : 'summary_mc_radiogenics_lpr_v2.csv'
         duration : 315576000    # 10 years in [s]
         he_scale :
                     m : 0.997849
                     b : -0.000564
 
-    feed_mc:
-        processed_file : 'merged_tagged_mc_radiogenics_lpr_feedthrough_v2.h5'
-        summary_file   : 'summary_radiogenics_lpr_feedthrough_v2_processed.csv'
+    mc_feedthrough:
+        processed_file : 'merged_tagged_mc_radiogenics_lpr_v2_feedthrough.h5'
+        summary_file   : 'summary_mc_radiogenics_lpr_v2_feedthrough.csv'
+
+radiogenics_lpr_v3:
+# - S1 cuts are done in the merging step
+# - Testing version for naming re-organization
+    data:
+        processed_file : 'merged_tagged_data_radiogenics_lpr_v3.h5'
+        summary_file   : 'summary_data_radiogenics_lpr_v3.csv' 
+        duration : 176288.5830
+        he_scale :
+                    m : 0.955348
+                    b : 0.008559
+        extra:
+            period   : 'p2'
+            det_cond : 'castle_closed_RAS'

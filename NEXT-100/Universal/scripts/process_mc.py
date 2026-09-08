@@ -37,14 +37,13 @@ import pandas as pd
 from pathlib import Path
 from typing import Callable, List, Tuple
 
-# =============================================================================
+# ===============================================
 # ----- CONFIGURATION & ARGUMENT DEFINITION -----
-# =============================================================================
-DATE = datetime.now().strftime('%d%m%Y')    # It helps to keep track of when the files were processed
-
-# DIRECTORIES
-OUTPUT_DIR  = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/mc/'
-SUMMARY_DIR = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/'
+# ===============================================
+# OUTPUT FILENAME TAG
+# This tag will be added to the output HDF5 filename to version the analysis.
+# Avoids overwriting previous results and helps keep track of different cut configurations.
+VERSION_TAG = 'v2'
 
 # KEYS
 MC_CONFIG_KEY = '/MC/configuration'
@@ -60,22 +59,12 @@ FINAL_SOPH_COLUMNS = ['event', 'time', 'npeak', 'X', 'Y', 'Z', 'E_hit_mev', 'clu
 EVENT_LEVEL_COLS = ['nS1', 'nS2', 'isotope', 'volume', 'double_e', 'old_n_hits']
 
 # CUTFLOW
-CUT_NAMES = ['Generated', 'Interacting', 'Saved', 'Sophronia', 'Clean', 'Strong_S2', 'S1_Cut']
+CUT_NAMES = ['Generated', 'Interacting', 'Saved', 'Sophronia', 'Clean', 'Strong_S2']
 
 # ---------------------
 # PROCESSING PARAMETERS
 # ---------------------
 V_DRIFT = 0.865     # Drift velocity in [mm/μs]
-
-# --- S1 Signal Cuts ---
-# Po-like events are filtered using: S1h >= m * S1e + b
-M_NOPOLIKE = 0.17
-B_NOPOLIKE = -56
-
-# --- S1e Correction ---
-# Values from Radon analysis: S1e = m * DT + b
-DT_CATH = 1350               # Cathode temporal position in [μs]
-CV_FIT  = [0.57, 796.53]     # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
 CLUSTERING_PARAMS = dict(eps = 1.8, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
@@ -147,8 +136,7 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         1. Loads Dorothea and Sophronia data from the input file.
         2. Extracts Monte Carlo information such as isotope, volume, and double-electron track flags.
         3. Applies data cleaning, including removing weak S2 peaks and spurious hits.
-        4. Applies energy corrections and S1e cuts based on predefined parameters.
-        5. Aggregates the data to event-peak level for further analysis.
+        4. Aggregates the data to event-peak level for further analysis.
     - If an error occurs during processing, the function returns an empty dataframe and a dictionary of zeros 
       to ensure robustness.
     """
@@ -204,14 +192,6 @@ def process_mc_file(filepath, isotope, cut_names=CUT_NAMES):
         # Just set hits with NaN or negative energy to 0
         df_soph['E_hit_mev'] = np.where(pd.notna(df_soph['E_hit_mev']) & (df_soph['E_hit_mev'] > 0), df_soph['E_hit_mev'], 0)
 
-        # ----- S1e Cut & Correction ----- #
-        # nS1 <= 1 (NO-Polike)
-        s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
-        df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        local_evt_counter[cut_names[6]] = df_soph['event'].nunique()
-        # S1e Correction
-        df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
-
         # ----- Data @ Event/Peak-Level ----- #
         # Now, store just the relevant columns in final Sophronia dataframe
         df_soph = df_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
@@ -239,33 +219,44 @@ def main():
     PROCESS_TYPE = args.process_type
     ISOTOPE = args.isotope
     print("\n----- Processing Configuration -----")
-    print(f"Date: {DATE}")
-    print(f"Process Type: {PROCESS_TYPE}")
-    print(f"Isotopes: {ISOTOPE}")
+    print(f"Process : {PROCESS_TYPE}")
+    print(f"Isotope : {ISOTOPE}")
+    print(f"Version : {VERSION_TAG}")
     print("------------------------------------")
 
-    # Outputs
-    output_filename = 'processed_mc_' + PROCESS_TYPE + '_'
-    if ISOTOPE != 'Xe136':  output_filename += ISOTOPE + '_'
-    output_filename += DATE + '.h5'
-    OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, output_filename)
-    
-    summary_filename = 'summary_' + PROCESS_TYPE + '_' + DATE + '_processed.csv'
-    SUMMARY_PATH = os.path.join(SUMMARY_DIR, summary_filename)
-
-    # Files to process
+    # Base folders
+    OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/'
+    SUMMARY_DIR = '/lhome/ific/c/ccortesp/Analysis/NEXT-100/'
     MC_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/NEXT/MC/NEXT100/'
     MC_PATHS = []
 
-    if PROCESS_TYPE == 'radiogenics_hpr': MC_DIR += 'Radiogenics/HPR/IC_v2.3.1/NEXUS_v7_10_01/'
-    # if PROCESS_TYPE == 'radiogenics_lpr': MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
-    if PROCESS_TYPE == 'radiogenics_lpr': 
-        if args.feed: MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_11_00/'
-        else:         MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+    # --- Set up paths based on process type and isotope
+    if 'radiogenics' in PROCESS_TYPE:
+        OUTPUT_DIR  = os.path.join(OUTPUT_DIR, 'Bacgkrounds/h5/mc/')
+        SUMMARY_DIR = os.path.join(SUMMARY_DIR, 'Bacgkrounds/txt/summaries/')
 
-    if PROCESS_TYPE == 'calibration_lpr': MC_DIR += 'Calibration/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
-    if PROCESS_TYPE == 'bb2nu_hpr':       MC_DIR += 'bb2nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb2nu0p1/'      # Changes here!
-    if PROCESS_TYPE == 'bb0nu_hpr':       MC_DIR += 'bb0nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb0nu/'
+        if 'hpr' in PROCESS_TYPE: MC_DIR += 'Radiogenics/HPR/IC_v2.3.1/NEXUS_v7_10_01/'
+        if 'lpr' in PROCESS_TYPE: 
+            if args.feed: MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_11_00/'
+            else:         MC_DIR += 'Radiogenics/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+
+    if 'calibration' in PROCESS_TYPE:
+        OUTPUT_DIR  = os.path.join(OUTPUT_DIR, 'Thorium/h5/mc/')
+        SUMMARY_DIR = os.path.join(SUMMARY_DIR, 'Thorium/txt/summaries/')
+
+        if 'lpr' in PROCESS_TYPE:  MC_DIR += 'Calibration/LPR/IC_v2.3.1/NEXUS_v7_09_00/'
+
+    if 'bb2nu' in PROCESS_TYPE:
+        OUTPUT_DIR  = os.path.join(OUTPUT_DIR, 'bb2nu/h5/mc/')
+        SUMMARY_DIR = os.path.join(SUMMARY_DIR, 'bb2nu/txt/summaries/')
+
+        if 'hpr' in PROCESS_TYPE: MC_DIR += 'bb2nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb2nu0p1/' # Changes here!
+
+    if 'bb0nu' in PROCESS_TYPE:
+        OUTPUT_DIR  = os.path.join(OUTPUT_DIR, 'bb0nu/h5/mc/')
+        SUMMARY_DIR = os.path.join(SUMMARY_DIR, 'bb0nu/txt/summaries/')
+
+        if 'hpr' in PROCESS_TYPE: MC_DIR += 'bb0nu/HPR/IC_v2.3.1/NEXUS_v7_10_01/bb0nu/'
 
     if ISOTOPE != 'Xe136':  MC_DIR += ISOTOPE + '/'
     # Get all subfolders in MC_DIR
@@ -279,8 +270,19 @@ def main():
         else:
             print(f"  {ISOTOPE}/{volume}: No Sophronia files found")
     MC_PATHS = sorted(MC_PATHS)
+    print(f"Input directory  : {MC_DIR}")
+    print(f"Output directory : {OUTPUT_DIR}")
     print(f"Total files to process: {len(MC_PATHS)}")
     print("------------------------------------")
+
+    # Outputs
+    output_filename = 'processed_mc_' + PROCESS_TYPE + '_' + VERSION_TAG
+    if ISOTOPE == 'Xe136' : output_filename += '.h5'
+    else                  : output_filename += '_' + ISOTOPE + '.h5'
+    OUTPUT_FILEPATH = os.path.join(OUTPUT_DIR, output_filename)
+    
+    summary_filename = 'summary_mc_' + PROCESS_TYPE + '_' + VERSION_TAG + '.csv'
+    SUMMARY_PATH = os.path.join(SUMMARY_DIR, summary_filename)
 
     # 2. --- PARALLEL PROCESSING OF FILES
     n_cores = os.cpu_count() - 1 if os.cpu_count() > 1 else 1

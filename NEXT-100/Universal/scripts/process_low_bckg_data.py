@@ -31,30 +31,29 @@ import csv
 import glob
 from invisible_cities.core.core_functions import in_range
 from invisible_cities.reco.corrections import apply_all_correction, read_maps
-from invisible_cities.types.symbols import NormMethod
-from invisible_cities.types.symbols import NormStrategy
+from invisible_cities.types.symbols import NormMethod, NormStrategy
 from joblib import delayed, Parallel
 import numpy as np
 import os
 import pandas as pd
 from typing import Callable, List, Tuple
 
-# =============================================================================
-# ----- CONFIGURATION & ARGUMENT DEFINITION -----
-# =============================================================================
+# =============================================== #
+# ----- CONFIGURATION & ARGUMENT DEFINITION ----- #
+# =============================================== #
 # OUTPUT FILENAME TAG
 # This tag will be added to the output HDF5 filename to version the analysis.
 # Avoids overwriting previous results and helps keep track of different cut configurations.
-VERSION_TAG = 'LPR_p2_v3'
+VERSION_TAG = 'radiogenics_lpr_v3'      # Options: 'radiogenics_lpr_vX', 'radiogenics_hpr_vX'
 
 # DIRECTORIES, PATHS & FILES
-DATA_DIR   = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
-ICAROS_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Icaros/Low_background/'
-OUTPUT_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
+DATA_DIR    = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Sophronia/Low_background/'
+KRYPTON_DIR = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Krypton/Low_background/'
+OUTPUT_DIR  = '/lustre/ific.uv.es/prj/gl/neutrinos/users/ccortesp/NEXT-100/Backgrounds/h5/runs/'
 
 RUNS_INFO_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/utilities/runs_information.csv')
 
-SUMMARY_FILENAME = 'summary_' + VERSION_TAG + '_processed.csv'
+SUMMARY_FILENAME = 'summary_data_' + VERSION_TAG + '.csv'
 SUMMARY_PATH = os.path.join('/lhome/ific/c/ccortesp/Analysis/NEXT-100/Backgrounds/txt/summaries/', SUMMARY_FILENAME)
 
 # KEYS
@@ -75,16 +74,6 @@ CUT_NAMES = ['Sophronia', 'Clean', 'Z_Positive']
 # PROCESSING PARAMETERS
 # ---------------------
 V_DRIFT = 0.865     # Drift velocity in [mm/μs]
-
-# --- S1 Signal Cuts ---
-# Po-like events are filtered using: S1h >= m * S1e + b
-M_NOPOLIKE = 0.17
-B_NOPOLIKE = -56
-
-# --- S1e Correction ---
-# Values from Radon analysis: S1e = m * DT + b
-DT_CATH = 1350              # Cathode temporal position in [μs]
-CV_FIT  = [0.57, 796.53]    # Fit values from S1e vs DT plot
 
 # --- Hits Clusterizer ---
 CLUSTERING_PARAMS = dict(eps = 1.8, min_samples = 5, scale_xy = 15.55, scale_z = 4.0)
@@ -123,9 +112,9 @@ def parse_arguments():
     
     return args
 
-# # =============================================================================
-# # ----- PROCESSING -----
-# # =============================================================================
+# ====================== #
+# ----- PROCESSING ----- #
+# ====================== #
 
 def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     """
@@ -153,11 +142,11 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
     ------
     - The function performs the following steps:
         1. Loads Dorothea and Sophronia data from the input file.
-        2. Computes the Z position using drift velocity and removes events with Z <= 0.
-        3. Applies energy corrections using a Krypton map.
-        4. Applies S1e cuts and corrections based on alpha analysis.
-        5. Deals with spurious hits using a clustering function.
-        6. Aggregates the data to event-peak level for further analysis.
+           Computes the Z position using drift velocity.
+        2. Deals with spurious hits using a clustering function.
+        3. Removes events with Z <= 0.
+        4. Applies energy corrections using a Krypton map.        
+        5. Aggregates the data to event-peak level for further analysis.
     - If an error occurs during processing, the function returns empty dataframes and a dictionary of zeros 
       to ensure robustness.
     """
@@ -201,14 +190,6 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
                                                    , energy_col = 'E_hit_pe'
                                                    , output_col ='Ec' )
 
-        # # ----- S1e Cut & Correction ----- #
-        # # nS1 <= 1 (NO-Polike)
-        # s1_mask = (df_doro['nS1'] == 0) | ((df_doro['nS1'] == 1) & (df_doro['S1h'] >= M_NOPOLIKE * df_doro['S1e'] + B_NOPOLIKE))
-        # df_doro, df_soph = crudo.dm.apply_cut_and_update(df_doro, df_soph, cut_mask=s1_mask, df_for_mask=df_doro)
-        # local_evt_counter[cut_names[3]] = df_soph['event'].nunique()
-        # # S1e Correction
-        # df_doro = crudo.ef.correct_S1e(df_doro, CV_FIT, DT_CATH, output_column='S1e_corr')     # Based on alpha analysis
-
         # ----- Data @ Event/Peak-Level ----- #
         # Now, store just the relevant columns in final Sophronia dataframe
         df_soph = df_soph.loc[:, FINAL_SOPH_COLUMNS].copy()
@@ -222,9 +203,9 @@ def process_file(filepath, kr_path, kr_city, cut_names=CUT_NAMES):
 
     return df_event_peak, df_soph, local_evt_counter
 
-# =============================================================================
-# ----- MAIN -----
-# =============================================================================
+# ================ #
+# ----- MAIN ----- #
+# ================ #
 
 def main():
     """
@@ -263,14 +244,14 @@ def main():
 
     print(f"Kr map city: {args.kr_city}")
     kr_file = next((f 
-                    for f in os.listdir(ICAROS_DIR) 
+                    for f in os.listdir(KRYPTON_DIR) 
                     if (f'run_{args.run_number}' in f and
                         ((args.kr_city == 'icaros' and f.endswith('.map.h5')) or 
                         (args.kr_city == 'zemrude' and f.endswith('.zemrude.h5'))))), None)
     if not kr_file:
-        raise FileNotFoundError(f"   Error: NO Kr map file found for run {args.run_number} in {ICAROS_DIR}")
+        raise FileNotFoundError(f"   Error: NO Kr map file found for run {args.run_number} in {KRYPTON_DIR}")
         sys.exit(1)
-    KR_PATH = os.path.join(ICAROS_DIR, kr_file)
+    KR_PATH = os.path.join(KRYPTON_DIR, kr_file)
     print(f"Kr map file found: {kr_file}")
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
