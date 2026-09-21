@@ -213,7 +213,6 @@ else:
 
 
 
-
 def COMPUTE_RATE_FILE(FILE_PATH):
     """
     Helper function to calculate the event rate from a single HDF5 file.
