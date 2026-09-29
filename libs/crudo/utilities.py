@@ -5,9 +5,8 @@
 from datetime import datetime
 import locale
 import numpy as np
+import pandas as pd
 from typing import Tuple
-
-
 
 
 def epoch_converter(epoch_time, h=False):
@@ -33,7 +32,6 @@ def epoch_converter(epoch_time, h=False):
         formatted_date = dt_object.strftime('%d/%m')          # day/month
     
     return formatted_date
-
 
 def smooth(y, n=4):
     """
@@ -102,3 +100,56 @@ def back_index(rate_hz: float, rate_err_hz: float, mass_kg: float, delta_E_mev: 
     bi_err = rate_err_in_year / (mass_kg * delta_E_keV)
     
     return bi_cv, bi_err
+
+# --- #
+
+def calculate_hourly_stats( df           : pd.DataFrame
+                          , variable     : str
+                          , method       : str = 'first'
+                          , stat_method  : str = 'mean'
+                          , stat_err     : str = 'sem'
+                          , hour_parts   : int = 1
+                          , event_column : str = 'event' ) -> pd.DataFrame:
+    """
+    Calculate time-binned statistics for a given variable in a DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame containing the data.
+    variable : str
+        Column name of the variable to calculate statistics for.
+    method : str, optional
+        Aggregation method per event (default is 'first').
+    stat_method : str, optional
+        Statistical method for bin aggregation (default is 'mean').
+    stat_err : str, optional
+        Error calculation method for bins: 'sem' (Standard Error) or 'std'.
+    hour_parts : int, optional
+        Fractions of an hour per bin (default is 1 full hour).
+    event_column : str, optional
+        Column name representing event identifiers (default is 'event').
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with Epoch time centers, calculated values, and errors.
+    """
+    evt_df = df.groupby(event_column).agg(var=(variable, method), time=('time', 'mean')).reset_index()
+
+    # Time chunks
+    time_in_hours = (evt_df['time'] - evt_df['time'].min()) / 3600
+    bin_width = 1.0 / hour_parts
+    time_bins = np.arange(0, time_in_hours.max() + bin_width, bin_width)
+    time_groups = pd.cut(time_in_hours, bins=time_bins, right=False, include_lowest=True)
+
+    hourly_stats = evt_df.groupby(time_groups)['var'].agg([stat_method, stat_err]).reset_index()
+    hourly_stats = hourly_stats.dropna()
+
+    # Representative points for each time bin (in EPOCH time)
+    time_centers = [evt_df['time'].min() + (3600 * interval.mid) for interval in hourly_stats['time'].values]
+
+    # Store results
+    return pd.DataFrame({       'time_cv'  : time_centers,
+                         f'{variable}_cv'  : hourly_stats[stat_method].values,
+                         f'{variable}_err' : hourly_stats[stat_err].values})

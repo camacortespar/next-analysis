@@ -320,7 +320,6 @@ def get_primary_pulse_info(df_doro: pd.DataFrame, event_level_cols: List[str]) -
 
     return doro_info_df
 
-
 def summarize_dorothea_info(df_doro: pd.DataFrame, event_level_cols: List[str]) -> pd.DataFrame:
     """
     Aggregates Dorothea data to the event level in a controlled, scalable way.
@@ -440,7 +439,6 @@ def summarize_hits_to_event_level( df_hits       : pd.DataFrame
     
     return soph_info_df
     
-
 def aggregate_to_event_peak_level(df_doro: pd.DataFrame, df_soph: pd.DataFrame, event_level_cols: List[str], energy_column='E_hit_mev') -> pd.DataFrame:
     """
     Aggregates hit-level data to event/peak-level summary data.

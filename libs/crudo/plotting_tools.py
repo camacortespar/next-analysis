@@ -479,7 +479,7 @@ def display_event_cluster(
     # --- TOP RIGHT: Clustered hits X vs Y ---
     for cl in sorted(df_clustered_xy['cluster'].unique()):
         cluster_df = df_clustered_xy[df_clustered_xy['cluster'] == cl]
-        color = color_sequence[-3] if cl == -1 else color_sequence[cl]
+        color = color_sequence[-3] if cl == -1 else color_sequence[cl % len(color_sequence)]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
         axes[0, 1].scatter(cluster_df['X'], cluster_df['Y'], s=15, ec='none', label=label, c=color)
     axes[0, 1].set_title("Clustered Hits")
@@ -490,13 +490,13 @@ def display_event_cluster(
     axes[0, 1].set_aspect('equal', adjustable='box')
     axes[0, 1].add_patch(Circle((0, 0), N100_rad, color='red', fill=False, lw=1.5, label='NEXT-100 Radius'))
 
-    # Region of interest
-    x_left, x_right = -N100_rad, -250
-    y_left, y_right = -60, 60
-    axes[0, 1].add_patch(plt.Rectangle((x_left, y_left), x_right - x_left, y_right - y_left, 
-                        fill=False, edgecolor='red', ls='--'))
-    axes[0, 1].add_patch(plt.Rectangle((-x_left, -y_left), - (x_right - x_left), - (y_right - y_left), 
-                        fill=False, edgecolor='red', ls='--'))
+    # # Region of interest
+    # x_left, x_right = -N100_rad, -250
+    # y_left, y_right = -60, 60
+    # axes[0, 1].add_patch(plt.Rectangle((x_left, y_left), x_right - x_left, y_right - y_left, 
+    #                     fill=False, edgecolor='red', ls='--'))
+    # axes[0, 1].add_patch(plt.Rectangle((-x_left, -y_left), - (x_right - x_left), - (y_right - y_left), 
+    #                     fill=False, edgecolor='red', ls='--'))
                         
     axes[0, 1].set_facecolor("whitesmoke")
     axes[0, 1].grid(True)
@@ -515,14 +515,14 @@ def display_event_cluster(
     # --- MIDDLE RIGHT: Clustered hits Z vs Y ---
     for cl in sorted(df_clustered_zy['cluster'].unique()):
         cluster_df = df_clustered_zy[df_clustered_zy['cluster'] == cl]
-        color = color_sequence[-3] if cl == -1 else color_sequence[cl]
+        color = color_sequence[-3] if cl == -1 else color_sequence[cl % len(color_sequence)]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
         axes[1, 1].scatter(cluster_df['Z'], cluster_df['Y'], s=15, ec='none', label=label, c=color)
     axes[1, 1].set_xlabel("Z [mm]")
     axes[1, 1].set_ylabel("Y [mm]")
     axes[1, 1].set_facecolor("whitesmoke")
     axes[1, 1].grid(True)
-    axes[1, 1].legend(loc='best', markerscale=1.5, fontsize=12, facecolor='none', edgecolor='none')
+    axes[1, 1].legend(loc='best', markerscale=1.5, fontsize=8, facecolor='none', edgecolor='none')
     
     # --- BOTTOM LEFT: All hits X vs Z ---
     sc4 = axes[2, 0].scatter(df_grouped_xz['Z'], df_grouped_xz['X'], c=df_grouped_xz[variable],  cmap='jet', s=15, ec='none')
@@ -537,14 +537,14 @@ def display_event_cluster(
     # --- BOTTOM RIGHT: Clustered hits X vs Z ---
     for cl in sorted(df_clustered_xz['cluster'].unique()):
         cluster_df = df_clustered_xz[df_clustered_xz['cluster'] == cl]
-        color = color_sequence[-3] if cl == -1 else color_sequence[cl]
+        color = color_sequence[-3] if cl == -1 else color_sequence[cl % len(color_sequence)]
         label = 'Scattered' if cl == -1 else f'Cluster {cl}'
         axes[2, 1].scatter(cluster_df['Z'],cluster_df['X'], s=15, ec='none', label=label, c=color)
     axes[2, 1].set_xlabel("Z [mm]")
     axes[2, 1].set_ylabel("X [mm]")
     axes[2, 1].set_facecolor("whitesmoke")
     axes[2, 1].grid(True)
-    axes[2, 1].legend(loc='best', markerscale=1.5, fontsize=12, facecolor='none', edgecolor='none')
+    axes[2, 1].legend(loc='best', markerscale=1.5, fontsize=8, facecolor='none', edgecolor='none')
     
     # Global adjustments
     plt.suptitle(f"Hit Distributions for Event: {event}", y=0.92, fontsize=20)
