@@ -20,19 +20,19 @@ def correct_S1e(
                     CV_fit,
                     DT_cath,
                     DT_column='DT',
-                    S1e_column='S1e',
+                    input_column='S1e',
                     output_column='S1e_corr'
                 ):
     """
-    Corrects S1e values using a linear model with the cathode as the reference.
-    It hands NaN values in the S1e column by propagating them to the corrected column.
+    Corrects S1 values using a linear model with the cathode as the reference.
+    It hands NaN values in the S1 column by propagating them to the corrected column.
 
     Parameters:
         df (pd.DataFrame): DataFrame containing S1 energy and drift time data.
         CV_fit (tuple): Linear fit coefficients (slope, intercept).
         DT_cath (float): Reference drift time at the cathode.
         DT_column (str): Column name for drift time data. Default is 'DT'.
-        S1e_column (str): Column name for S1 energy data. Default is 'S1e'.
+        input_column (str): Column name for S1 energy data. Default is 'S1e'.
         output_column (str): Column name for corrected S1 energy. Default is 'S1e_corr'.
 
     Returns:
@@ -42,15 +42,15 @@ def correct_S1e(
     m, b = CV_fit
 
     # Validate required columns
-    if DT_column not in df or S1e_column not in df:
-        raise KeyError(f"Missing required columns: '{DT_column}' or '{S1e_column}'.")
+    if DT_column not in df or input_column not in df:
+        raise KeyError(f"Missing required columns: '{DT_column}' or '{input_column}'.")
 
     # Compute reference S1e value at the cathode
     S1e_ref = m * DT_cath + b
 
     # Apply correction to S1e values, handling NaN values
-    df[output_column] = df[S1e_column] * (S1e_ref / (m * df[DT_column] + b))
-    df.loc[df[S1e_column].isna(), output_column] = np.nan
+    df[output_column] = df[input_column] * (S1e_ref / (m * df[DT_column] + b))
+    df.loc[df[input_column].isna(), output_column] = np.nan
 
     return df
 
@@ -108,18 +108,15 @@ def correct_S2e_map(
     X, Y, DT, E2 = df['X'], df['Y'], df['DT'], df[input_column]
 
     # Mask
-    mask = (DT < DT_cath)
+    mask = (DT >= 0) & (DT < DT_cath)
 
     # Generate normalized energy map
-    energy_map, x_edges, y_edges = pt.mapping(X[mask], Y[mask], wei=E2[mask], norm=True)
+    energy_map, x_edges, y_edges = pt.mapping(X[mask], Y[mask], wei=E2[mask],
+                                              bin_scale=4, max_limit=pt.N100_rad, norm=True)
 
     # Map events to reference bins, ensuring valid indices
     df['x_bin'] = np.clip(np.digitize(X, x_edges) - 1, 0, len(x_edges) - 2)
     df['y_bin'] = np.clip(np.digitize(Y, y_edges) - 1, 0, len(y_edges) - 2)
-
-    # # Assign bin indices for each event
-    # df['x_bin'] = np.digitize(X, x_edges) - 1  # 0-based indexing
-    # df['y_bin'] = np.digitize(Y, y_edges) - 1
 
     # Normalization factors
     df['S2e_norm_factor'] = energy_map[df['x_bin'], df['y_bin']]
@@ -278,7 +275,6 @@ def get_corr3d(
         return norm / e_data
 
     return corr
-
 
 def get_corrt(kr_fname, variable='s2e', n=4):
     """
